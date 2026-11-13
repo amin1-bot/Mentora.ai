@@ -49,7 +49,7 @@ export const routes = [
     ],
   },
   {
-    path: "/classroom",
+    path: "/classroom/:sessionId",
     element: (
       <RequireAuth roles={["student"]}>
         <Suspense fallback={<Loading />}>

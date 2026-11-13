@@ -1,24 +1,26 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, Navigate, useNavigate, useParams } from "react-router";
 
 import { Alert } from "../../components/Alert";
 import { Button, buttonClass } from "../../components/Button";
-import { TemporaryBadge } from "../../components/Temporary";
+import { Loading } from "../../components/Temporary";
+import { ApiError } from "../../lib/api";
+import { errorMessage } from "../../lib/errors";
 import { useSession } from "../auth/session";
 import styles from "./classroom.module.css";
-import { SAMPLE_BOARD, SAMPLE_MESSAGES, SAMPLE_TOPIC } from "./sampleLesson";
+import { useEndLesson, useLesson } from "./useLesson";
 import { Whiteboard } from "./whiteboard/Whiteboard";
 
 type MobileTab = "board" | "chat";
 
 export function ClassroomPage() {
+  const { sessionId } = useParams();
+  const { data: auth } = useSession();
   const { t } = useTranslation();
-  const { data: session } = useSession();
-  const [tab, setTab] = useState<MobileTab>("board");
-  const [draft, setDraft] = useState("");
 
-  if (session?.consent_status === "pending") {
+  if (!sessionId) return <Navigate to="/home" replace />;
+  if (auth?.consent_status === "pending") {
     return (
       <main id="main" className={styles.locked}>
         <Alert tone="warning" title={t("classroom.lockedTitle")}>
@@ -30,8 +32,62 @@ export function ClassroomPage() {
       </main>
     );
   }
+  return <Classroom sessionId={sessionId} />;
+}
 
-  const percent = Math.round(SAMPLE_TOPIC.mastery * 100);
+function Classroom({ sessionId }: { sessionId: string }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { session, messages, lesson, liveText, status, busy, error, board, send } =
+    useLesson(sessionId);
+  const endLesson = useEndLesson();
+  const [tab, setTab] = useState<MobileTab>("board");
+  const [draft, setDraft] = useState("");
+  const logRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const log = logRef.current;
+    if (log) log.scrollTop = log.scrollHeight; // keep the newest message in view
+  }, [messages.length, liveText]);
+
+  if (session.isPending) return <Loading />;
+  if (session.isError) {
+    return (
+      <main id="main" className={styles.locked}>
+        <Alert tone="error">{errorMessage(session.error, t)}</Alert>
+        <Link to="/home" className={buttonClass("secondary")}>
+          {t("classroom.backHome")}
+        </Link>
+      </main>
+    );
+  }
+
+  const ended = session.data.status === "ended";
+  const canAct = !busy && !ended;
+  const hasQuestion = Boolean(lesson?.has_question);
+
+  function submit(event?: FormEvent) {
+    event?.preventDefault();
+    const text = draft.trim();
+    if (!text || !canAct) return;
+    setDraft("");
+    void send("message", text);
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) submit(event);
+  }
+
+  function finish() {
+    endLesson.mutate(sessionId, { onSettled: () => navigate("/home") });
+  }
+
+  const statusText =
+    status === "thinking"
+      ? t("classroom.statusThinking")
+      : status === "explaining"
+        ? t("classroom.statusExplaining")
+        : t("classroom.statusWaiting");
 
   return (
     <div className={styles.classroom}>
@@ -39,16 +95,16 @@ export function ClassroomPage() {
       <header className={styles.topicStrip}>
         <div className={styles.topicInfo}>
           <span className={styles.topicLabel}>{t("classroom.topicLabel")}</span>
-          <strong className={styles.topicName}>{SAMPLE_TOPIC.name}</strong>
-          <TemporaryBadge />
+          <strong className={styles.topicName}>{session.data.topic.name}</strong>
         </div>
-        <div className={styles.mastery}>
-          <span className={styles.masteryText}>{t("dashboard.mastery", { percent })}</span>
-          <progress className={styles.masteryBar} max={100} value={percent} aria-label={t("dashboard.mastery", { percent })} />
-        </div>
-        <Link to="/home" className={buttonClass("secondary")}>
+        {hasQuestion && lesson && lesson.hint_level > 0 && (
+          <span className={styles.masteryText}>
+            {t("classroom.hintsUsed", { used: lesson.hint_level, max: lesson.max_hint_level })}
+          </span>
+        )}
+        <Button variant="secondary" onClick={finish} disabled={endLesson.isPending}>
           {t("classroom.endLesson")}
-        </Link>
+        </Button>
       </header>
 
       {/* Phone only: whiteboard and conversation become two tabs */}
@@ -77,7 +133,7 @@ export function ClassroomPage() {
           className={styles.boardArea}
           data-active={tab === "board"}
         >
-          <Whiteboard blocks={SAMPLE_BOARD} label={t("classroom.whiteboard")} />
+          <Whiteboard blocks={board} label={t("classroom.whiteboard")} />
         </div>
 
         <aside
@@ -94,39 +150,58 @@ export function ClassroomPage() {
             </div>
             <div>
               <p className={styles.teacherName}>
-                {t("classroom.teacherName")} <span className={styles.aiTag}>{t("app.aiLabel")}</span>
+                {t("classroom.teacherName")}{" "}
+                <span className={styles.aiTag}>{t("app.aiLabel")}</span>
               </p>
-              <p className={styles.status}>
-                <span className={styles.statusDot} aria-hidden="true" />
-                {t("classroom.statusWaiting")}
+              <p className={styles.status} aria-live="polite">
+                <span className={styles.statusDot} data-busy={busy} aria-hidden="true" />
+                {statusText}
               </p>
             </div>
           </div>
 
-          {/* Conversation history; new teacher messages are announced to screen readers */}
-          <div className={styles.log} role="log" aria-live="polite" aria-label={t("classroom.conversation")}>
-            {SAMPLE_MESSAGES.map((m, i) => (
-              <div key={i} className={m.role === "teacher" ? styles.msgTeacher : styles.msgStudent}>
+          {/* Conversation history; finished teacher messages are announced */}
+          <div
+            ref={logRef}
+            className={styles.log}
+            role="log"
+            aria-live="polite"
+            aria-label={t("classroom.conversation")}
+          >
+            {messages.map((m) => (
+              <div key={m.id} className={m.role === "teacher" ? styles.msgTeacher : styles.msgStudent}>
                 <span className="visually-hidden">
                   {m.role === "teacher" ? t("classroom.teacherName") : t("classroom.you")}:{" "}
                 </span>
-                {m.text}
+                {m.content}
               </div>
             ))}
+            {liveText && (
+              <div className={styles.msgTeacher} aria-hidden="true">
+                {liveText}
+              </div>
+            )}
           </div>
         </aside>
       </main>
 
       {/* 3. Conversation box */}
-      <form className={styles.composer} onSubmit={(e) => e.preventDefault()}>
-        <p className={styles.notice}>
-          <TemporaryBadge /> {t("classroom.notConnected")}
-        </p>
+      <form className={styles.composer} onSubmit={submit}>
+        {error != null && <LessonError error={error} />}
+        {ended && <Alert tone="info">{t("classroom.ended")}</Alert>}
         <div className={styles.helpButtons}>
-          <Button variant="secondary" disabled>
+          <Button
+            variant="secondary"
+            disabled={!canAct || !hasQuestion}
+            onClick={() => void send("hint", undefined, t("classroom.hint"))}
+          >
             {t("classroom.hint")}
           </Button>
-          <Button variant="secondary" disabled>
+          <Button
+            variant="secondary"
+            disabled={!canAct}
+            onClick={() => void send("dont_get_it", undefined, t("classroom.dontGetIt"))}
+          >
             {t("classroom.dontGetIt")}
           </Button>
         </div>
@@ -138,15 +213,28 @@ export function ClassroomPage() {
             id="answer"
             className={styles.input}
             rows={1}
+            maxLength={1000}
             placeholder={t("classroom.inputPlaceholder")}
             value={draft}
+            disabled={ended}
             onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKeyDown}
           />
-          <Button type="submit" disabled>
+          <Button type="submit" disabled={!canAct || !draft.trim()}>
             {t("classroom.send")}
           </Button>
         </div>
       </form>
     </div>
+  );
+}
+
+function LessonError({ error }: { error: unknown }) {
+  const { t } = useTranslation();
+  const notConfigured = error instanceof ApiError && error.code === "ai_not_configured";
+  return (
+    <Alert tone={notConfigured ? "warning" : "error"}>
+      {notConfigured ? t("classroom.notConfigured") : errorMessage(error, t)}
+    </Alert>
   );
 }

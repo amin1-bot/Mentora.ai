@@ -108,12 +108,8 @@ in the backend console, log out, and open the link.
 
 ### What is real and what is temporary
 
-- **Real:** signup, login, logout, session refresh, guardian consent, profile editing,
-  the classroom layout on desktop and phone, the whiteboard renderer.
-- **Temporary, and labeled "Temporary sample" on screen:** the topic list, the mastery
-  numbers, the whiteboard lesson and the conversation. They come from
-  `src/features/classroom/sampleLesson.ts`, which is deleted in Phase 5. Send, hint and
-  "I don't get it" are disabled until the AI teacher is connected.
+Since Phase 5 everything on screen is real. The Phase 4 sample lesson
+(`sampleLesson.ts`) was deleted when the AI teacher was connected.
 
 ### Frontend layout
 
@@ -230,3 +226,72 @@ backend/app/
 backend/alembic/ database migrations (set up once Docker works)
 frontend/src/    React app skeleton (created with Vite in Phase 4)
 ```
+
+## Phase 5: the real AI teacher
+
+The model is the teacher's voice; our code is the teacher's judgment (blueprint section 8).
+
+### Turning it on
+
+1. Create an API key at console.anthropic.com (Settings, API keys) and set a monthly
+   spend limit there; that is the hard cap on what the teacher can cost.
+2. Put it in `backend/.env` (copy `.env.example` first). Never commit this file:
+   ```
+   ANTHROPIC_API_KEY=sk-ant-...
+   ```
+3. Restart the backend, start a lesson from Home.
+
+Without a key the classroom says "The AI teacher is not set up on this server yet".
+
+### How one turn works
+
+| Step | Who | File |
+|------|-----|------|
+| Safety check: distress gets a fixed reply pointing to a trusted adult, never the model; flagged in `audit_log` | code | `teacher/safety.py` |
+| Is the message an answer? Check it, spot known misconceptions (25% of 80 = 2000 means "forgot to divide by 100") | code | `adaptive/answers.py` |
+| Choose the action: hint ladder, explain differently, solution only after an attempt and all 3 hints, difficulty up after 3 right, down after 2 wrong | code | `adaptive/engine.py` |
+| Pick the next question from the approved bank and put it on the board | code | `classroom/repository.py` |
+| Fixed rules + grade + the action + recent messages (no names, emails or birth dates) | code | `teacher/prompts.py` |
+| Say it well, optionally write steps and equations on the board | model | `ai/providers/anthropic_provider.py` |
+| Leak guard: watches the streaming reply and stops any hidden answer before it is shown, then regenerates once; a second leak gets a safe line written by code | code | `teacher/guard.py`, `teacher/generate.py` |
+| Save messages, attempt, lesson state, and cost (`ai_requests`, never any text) | code | `classroom/service.py` |
+
+The reply streams to the browser as Server-Sent Events (`POST /sessions/{id}/messages`).
+
+### Model and cost settings (`backend/.env`)
+
+| Setting | Default | Why |
+|---------|---------|-----|
+| `AI_MODEL` | `claude-opus-5-5` | Most capable current model. `claude-sonnet-5-5` and `claude-haiku-5-5` are cheaper; compare them with the evaluation before switching |
+| `AI_EFFORT` | `low` | How much the model thinks before answering. Low keeps replies quick for students |
+| `AI_MAX_OUTPUT_TOKENS` | `4000` | Cap per reply, thinking included |
+| `DAILY_MESSAGE_LIMIT` | `150` | Per student per day |
+
+Safety fallback is on: if the model declines a request, the API retries it on a suitable
+fallback model in the same call (`fallbacks="default"`).
+
+### Measuring the teacher (the Phase 5 gate)
+
+The gate is "a real conversation works and the answer-leak rate is measured on the test
+set". With a key in `.env`:
+```powershell
+cd backend
+python -m evaluation.run_eval                              # about 17 replies, a few cents
+python -m evaluation.run_eval --model claude-sonnet-5-5   # compare a cheaper model
+```
+It prints each case and a summary, and saves a report in `evaluation/reports/`:
+- **raw leak rate**: how often the model tried to reveal a hidden answer (target under 5%)
+- **final leak rate**: how often one reached the student (should be 0)
+- fallbacks, median time to first words (target under 2 s), tokens and estimated cost
+
+`evaluation/cases.py` has 17 starter cases, including attempts to talk the teacher into
+giving the answer. The blueprint asks for about 50, written by you; add your own there.
+
+### Known limits
+
+- The leak guard catches answers written as numbers, not as words ("twenty"). The
+  evaluation counts word leaks separately so we can see whether this happens.
+- The distress check is a simple word list; it will miss things and sometimes misfire.
+  Flagged messages need human review during the pilot.
+- One topic area (Percentages, 15 questions). Mastery that persists between lessons and
+  the progress page arrive with the adaptive slice (MVP part of phases 7 and 8).

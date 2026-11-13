@@ -29,7 +29,7 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
 }
 
-async function toApiError(response: Response): Promise<ApiError> {
+export async function toApiError(response: Response): Promise<ApiError> {
   try {
     const body = (await response.json()) as ApiErrorBody;
     return new ApiError(response.status, body.error.code, body.error.message, body.error.details);
@@ -41,7 +41,7 @@ async function toApiError(response: Response): Promise<ApiError> {
 // If several requests get 401 at once, they share one refresh call.
 let refreshing: Promise<boolean> | null = null;
 
-function refreshSession(): Promise<boolean> {
+export function refreshSession(): Promise<boolean> {
   refreshing ??= send("POST", "/auth/refresh")
     .then((r) => r.ok)
     .catch(() => false)
@@ -51,7 +51,7 @@ function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
-function send(method: string, path: string, body?: unknown): Promise<Response> {
+export function send(method: string, path: string, body?: unknown): Promise<Response> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (method !== "GET") {

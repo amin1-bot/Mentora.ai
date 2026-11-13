@@ -77,7 +77,9 @@ export const en = {
     resendSubmit: "Send",
     resent: "Sent. Ask them to check their inbox.",
     topicsTitle: "Your math topics",
-    startLesson: "Open classroom",
+    startLesson: "Start lesson",
+    topicMeta: "Grades {{grades}} · {{count}} practice questions",
+    noTopics: "No topics are available yet.",
     mastery: "Mastery {{percent}}%",
     guardianTitle: "Guardian home",
     guardianBody:
@@ -88,6 +90,12 @@ export const en = {
     endLesson: "End lesson",
     teacherName: "Ms. Mentora",
     statusWaiting: "Waiting for you",
+    statusThinking: "Thinking…",
+    statusExplaining: "Explaining…",
+    hintsUsed: "Hints used: {{used}} of {{max}}",
+    ended: "This lesson has ended. Start a new one from your topics.",
+    notConfigured:
+      "The AI teacher is not set up on this server yet. Add an Anthropic API key to the backend (see the README).",
     whiteboard: "Whiteboard",
     stepLabel: "Step {{number}}:",
     conversation: "Conversation",
@@ -97,7 +105,6 @@ export const en = {
     send: "Send",
     hint: "Give me a hint",
     dontGetIt: "I don't get it",
-    notConnected: "The AI teacher is connected in Phase 5. Sending is turned off for now.",
     lockedTitle: "Lessons are locked",
     lockedBody: "A parent or guardian needs to approve your account first.",
     backHome: "Back to home",
@@ -134,6 +141,11 @@ export const en = {
     invite_email_mismatch: "Log in with the email address this invitation was sent to.",
     consent_version_outdated: "The consent text changed. Reload the page and review it again.",
     invalid_date_of_birth: "Date of birth cannot be in the future.",
+    consent_required: "A parent or guardian needs to approve your account before lessons.",
+    daily_limit: "That's a lot of maths for one day! Take a break and come back tomorrow.",
+    ai_unavailable: "The teacher is having trouble right now. Please try again in a moment.",
+    session_ended: "This lesson has ended. Start a new one from your topics.",
+    topic_not_found: "This topic is not available yet.",
   },
 };
 

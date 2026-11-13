@@ -1,1 +1,1 @@
-﻿"""Prompt building and teaching strategy (Phase 5)."""
+"""Prompt building and teaching strategy (Phase 5)."""

@@ -15,7 +15,7 @@ const student = {
 describe("routing and login", () => {
   it("sends logged-out visitors from a protected page to login", async () => {
     fakeBackend(loggedOut);
-    const router = renderApp("/classroom");
+    const router = renderApp("/classroom/L1");
     expect(await screen.findByRole("heading", { name: "Log in" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/login");
   });

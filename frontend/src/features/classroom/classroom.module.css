@@ -285,3 +285,14 @@
     flex: 1;
   }
 }
+
+.statusDot[data-busy="true"] {
+  background: var(--color-primary);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}

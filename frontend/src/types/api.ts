@@ -57,6 +57,41 @@ export interface ConsentResult {
   consent_given_at: string;
 }
 
+export interface Topic {
+  id: string;
+  subject_id: string;
+  name: string;
+  grade_band: string;
+  question_count: number;
+}
+
+/** What the browser may know about a lesson. Never contains an answer. */
+export interface LessonState {
+  has_question: boolean;
+  question_text: string | null;
+  hint_level: number;
+  max_hint_level: number;
+}
+
+export interface LessonMessage {
+  id: string;
+  role: "student" | "teacher" | "system";
+  content: string;
+  whiteboard: unknown[] | null;
+  created_at: string;
+}
+
+export interface LessonSession {
+  id: string;
+  topic: { id: string; name: string };
+  status: "active" | "ended";
+  started_at: string;
+  lesson: LessonState;
+  messages: LessonMessage[];
+}
+
+export type TurnIntent = "start" | "message" | "hint" | "dont_get_it";
+
 export interface ApiErrorBody {
   error: {
     code: string;

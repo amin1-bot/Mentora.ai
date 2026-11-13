@@ -1,14 +1,14 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
 
 import { Alert } from "../../components/Alert";
-import { Button, buttonClass } from "../../components/Button";
+import { Button } from "../../components/Button";
 import { TextField } from "../../components/Form";
-import { Card, Loading, TemporaryBadge } from "../../components/Temporary";
+import { Card, Loading } from "../../components/Temporary";
 import { errorMessage } from "../../lib/errors";
 import { useSession } from "../auth/session";
-import { SAMPLE_TOPICS } from "../classroom/sampleLesson";
+import { useStartLesson, useTopics } from "../classroom/useLesson";
 import styles from "./dashboard.module.css";
 import { useInviteGuardian, useProfile } from "./students";
 
@@ -42,30 +42,47 @@ function StudentHome() {
       <section aria-labelledby="topics-title">
         <div className={styles.sectionHead}>
           <h2 id="topics-title">{t("dashboard.topicsTitle")}</h2>
-          <TemporaryBadge />
         </div>
-        <ul className={styles.topics}>
-          {SAMPLE_TOPICS.map((topic) => {
-            const percent = Math.round(topic.mastery * 100);
-            return (
-              <li key={topic.id} className={styles.topic}>
-                <h3 className={styles.topicName}>{topic.name}</h3>
-                <p className={styles.masteryLabel}>{t("dashboard.mastery", { percent })}</p>
-                <progress
-                  className={styles.bar}
-                  max={100}
-                  value={percent}
-                  aria-label={`${topic.name}: ${t("dashboard.mastery", { percent })}`}
-                />
-                <Link to="/classroom" className={buttonClass("secondary", true)}>
-                  {t("dashboard.startLesson")}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <TopicList locked={pending} />
       </section>
     </div>
+  );
+}
+
+function TopicList({ locked }: { locked: boolean }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const topics = useTopics();
+  const start = useStartLesson();
+
+  if (topics.isPending) return <Loading />;
+  if (topics.isError) return <Alert tone="error">{errorMessage(topics.error, t)}</Alert>;
+  if (topics.data.length === 0) return <p>{t("dashboard.noTopics")}</p>;
+
+  return (
+    <>
+      {start.isError && <Alert tone="error">{errorMessage(start.error, t)}</Alert>}
+      <ul className={styles.topics}>
+        {topics.data.map((topic) => (
+          <li key={topic.id} className={styles.topic}>
+            <h3 className={styles.topicName}>{topic.name}</h3>
+            <p className={styles.masteryLabel}>
+              {t("dashboard.topicMeta", { grades: topic.grade_band, count: topic.question_count })}
+            </p>
+            <Button
+              variant="secondary"
+              fullWidth
+              disabled={locked || start.isPending}
+              onClick={() =>
+                start.mutate(topic.id, { onSuccess: (s) => navigate(`/classroom/${s.id}`) })
+              }
+            >
+              {t("dashboard.startLesson")}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

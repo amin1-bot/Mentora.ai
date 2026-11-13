@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     consent_version: str = "2026-11-draft"  # bump when the consent text changes
     guardian_invite_days: int = 7
 
+    # --- AI teacher (blueprint section 8) ---
+    ai_provider: str = "anthropic"  # "anthropic" or "none"
+    # Leave empty to let the SDK find credentials (ANTHROPIC_API_KEY or `ant auth login`).
+    anthropic_api_key: str | None = None
+    ai_model: str = "claude-opus-5-5"
+    ai_effort: str = "low"  # low | medium | high: thinking depth per reply (speed vs depth)
+    ai_max_output_tokens: int = 4000  # per reply, includes the model's thinking
+    ai_history_messages: int = 12  # how many recent messages the model sees
+    daily_message_limit: int = 150  # per student, protects cost and encourages breaks
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

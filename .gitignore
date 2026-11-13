@@ -20,3 +20,6 @@ dist/
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
+
+# Evaluation output (model replies; regenerate any time)
+backend/evaluation/reports/

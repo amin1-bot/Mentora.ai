@@ -41,12 +41,43 @@ async def _create_test_database() -> None:
         await conn.close()
 
 
+# Seeded by migrations (the approved question bank) and only read by the app: kept.
+CURRICULUM_TABLES = {"subjects", "topics", "topic_prerequisites", "misconceptions", "questions"}
+
+
 async def _empty_all_tables() -> None:
     engine = create_async_engine(os.environ["DATABASE_URL"])
-    tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+    tables = ", ".join(
+        f'"{t.name}"' for t in Base.metadata.sorted_tables if t.name not in CURRICULUM_TABLES
+    )
     try:
         async with engine.begin() as conn:
             await conn.execute(text(f"TRUNCATE {tables} CASCADE"))
+    finally:
+        await engine.dispose()
+
+
+async def _ensure_curriculum_seed() -> None:
+    """Same rows as the seed migration; existing rows are kept."""
+    from sqlalchemy.dialects.postgresql import insert
+
+    from app.modules.curriculum import seed_data as d
+    from app.modules.curriculum.models import Misconception, Question, Subject, Topic
+
+    engine = create_async_engine(os.environ["DATABASE_URL"])
+    misconceptions = [
+        {**m, "id": d.seed_id(f"misconception:{m['code']}"), "topic_id": d.PERCENTAGES_ID}
+        for m in d.MISCONCEPTIONS
+    ]
+    try:
+        async with engine.begin() as conn:
+            for model, rows in (
+                (Subject, d.SUBJECTS),
+                (Topic, d.TOPICS),
+                (Misconception, misconceptions),
+                (Question, d.QUESTIONS),
+            ):
+                await conn.execute(insert(model).values(rows).on_conflict_do_nothing())
     finally:
         await engine.dispose()
 
@@ -55,6 +86,7 @@ async def _empty_all_tables() -> None:
 def test_database() -> None:
     asyncio.run(_create_test_database())
     command.upgrade(Config(str(BACKEND_DIR / "alembic.ini")), "head")
+    asyncio.run(_ensure_curriculum_seed())
 
 
 @pytest.fixture(autouse=True)
