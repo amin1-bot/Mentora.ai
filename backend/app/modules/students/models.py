@@ -53,3 +53,22 @@ class GuardianLink(UUIDPrimaryKey, CreatedAt, Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
     consent_given_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     consent_version: Mapped[str | None] = mapped_column(String(20))
+
+
+class GuardianInvite(UUIDPrimaryKey, CreatedAt, Base):
+    """An emailed request for a guardian to approve a student's account.
+
+    The guardian may not have an account yet, so this stores their email until they
+    accept. Only a hash of the link token is stored.
+    """
+
+    __tablename__ = "guardian_invites"
+
+    student_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    guardian_email: Mapped[str] = mapped_column(String(320), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

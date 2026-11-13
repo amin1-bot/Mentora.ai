@@ -38,7 +38,7 @@ def test_health_reports_database_down() -> None:
     assert response.json() == {
         "status": "degraded",
         "database": "unavailable",
-        "environment": "local",
+        "environment": "test",
     }
 
 

@@ -18,6 +18,58 @@ Run each install command in PowerShell. Windows will show an admin prompt for so
 | 7 | Hello FastAPI endpoint and /docs | Done |
 | 8 | Database connection, Alembic, 15 MVP tables, /health checks the database | Done |
 
+## Phase 3: accounts and consent
+
+Gate from the blueprint: *a student provably cannot read another student's data*.
+Covered by `test_student_cannot_read_another_students_data` in
+`backend/app/tests/test_students.py`.
+
+### Endpoints (all under `/api/v1`)
+
+| Endpoint | Who | What |
+|----------|-----|------|
+| `POST /auth/signup` | anyone | `account_type` `student` or `guardian`; logs in on success |
+| `POST /auth/login` | anyone | email + password |
+| `POST /auth/refresh` | logged in | new login cookies; call when a request returns 401 |
+| `POST /auth/logout` | logged in | revokes the refresh token, clears cookies |
+| `GET`, `PATCH /students/me` | student | own profile (birth date cannot be changed) |
+| `GET /students/{id}` | the student, or their approved guardian | everyone else gets 403 |
+| `POST /guardians/invite` | student | send or re-send the approval email |
+| `POST /guardians/invite-info` | anyone with the link | what the guardian sees before approving |
+| `POST /guardians/consent` | guardian | approve, using the token from the email |
+
+Errors always look like `{"error": {"code": "...", "message": "..."}}`.
+
+### Rules currently in place (assumed decisions, change in `app/core/config.py`)
+
+- Students must be **13 or older**. Nothing is stored for younger signups.
+- Students **under 18** must give a guardian email. Their `consent_status` stays
+  `pending` until the guardian creates an account with that same email and approves.
+- Passwords: Argon2id hashes, at least 10 characters, cannot contain the email name.
+- 5 wrong passwords lock the account for 15 minutes. Signup and login are limited to
+  10 tries per minute per IP address.
+
+### How login works (for the frontend in Phase 4)
+
+- Login sets three cookies. The access and refresh cookies are `HttpOnly`, so JavaScript
+  cannot read them (protects against stolen tokens).
+- Send requests with `credentials: "include"`. For every `POST`, `PATCH` and `DELETE`,
+  copy the `mentora_csrf` cookie into an `X-CSRF-Token` header.
+- The access cookie lasts 15 minutes. On a 401, call `POST /auth/refresh` once, then retry.
+- Each refresh token works once. If an old one is reused, every session of that user ends.
+
+### Known gaps (to do before real students)
+
+- **No real email yet.** Locally, the consent link is printed in the server console.
+  The server refuses to start sending email in staging or production until a provider
+  is added (`app/core/email.py`).
+- **Consent text not written.** `CONSENT_VERSION` is `2026-11-draft`; the wording of what
+  guardians agree to needs legal review (blueprint section 10).
+- Guardians cannot yet revoke consent or delete the account (parent dashboard, Phase 12).
+- Rate limits are counted in memory per server process; Redis comes in Phase 13.
+- Students with `pending` consent can log in and edit their profile. Lessons (Phase 5)
+  must check `consent_status` before teaching.
+
 ### 3. Git
 Git records every change to your code so you can undo mistakes and push to GitHub.
 
@@ -76,7 +128,8 @@ uvicorn app.main:app --reload
 Open http://127.0.0.1:8000/docs. You should see `/api/v1/hello` and `/api/v1/health`.
 `/api/v1/health` should say `"database": "ok"`.
 
-Tests and lint (the database must be running and migrated):
+Tests and lint (Docker must be running). Tests use their own `mentora_test` database,
+created and migrated automatically, and emptied before every test:
 ```powershell
 pytest
 ruff check .

@@ -4,7 +4,7 @@ from app.ai.models import AIRequest
 from app.core.audit import AuditLog
 from app.core.database import Base
 from app.modules.adaptive.models import MasteryEvent, QuestionAttempt, TopicMastery
-from app.modules.auth.models import User
+from app.modules.auth.models import RefreshToken, User
 from app.modules.classroom.models import LearningSession, Message
 from app.modules.curriculum.models import (
     Misconception,
@@ -13,12 +13,13 @@ from app.modules.curriculum.models import (
     Topic,
     TopicPrerequisite,
 )
-from app.modules.students.models import GuardianLink, StudentProfile
+from app.modules.students.models import GuardianInvite, GuardianLink, StudentProfile
 
 __all__ = [
     "AIRequest",
     "AuditLog",
     "Base",
+    "GuardianInvite",
     "GuardianLink",
     "LearningSession",
     "MasteryEvent",
@@ -26,6 +27,7 @@ __all__ = [
     "Misconception",
     "Question",
     "QuestionAttempt",
+    "RefreshToken",
     "StudentProfile",
     "Subject",
     "Topic",

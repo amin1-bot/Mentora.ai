@@ -15,6 +15,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import get_settings
 from app.core.database import SessionDep, engine
+from app.core.errors import register_error_handlers
+from app.modules.auth.router import router as auth_router
+from app.modules.students.router import guardians_router, students_router
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +43,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.cors_origin_list,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
-        allow_headers=["*"],
+        allow_headers=["Content-Type", "X-CSRF-Token"],
     )
 
     api = APIRouter(prefix=settings.api_prefix)
@@ -66,8 +69,13 @@ def create_app() -> FastAPI:
             "environment": settings.environment,
         }
 
-    # Feature module routers (auth, students, classroom, ...) are registered here as they are built.
+    # Feature module routers. Add new modules here as they are built.
+    api.include_router(auth_router)
+    api.include_router(students_router)
+    api.include_router(guardians_router)
+
     app.include_router(api)
+    register_error_handlers(app)
     return app
 
 

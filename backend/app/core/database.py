@@ -13,6 +13,7 @@ from fastapi import Depends
 from sqlalchemy import DateTime, MetaData, func, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 
@@ -46,7 +47,13 @@ class CreatedAt:
     )
 
 
-engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+_settings = get_settings()
+engine = create_async_engine(
+    _settings.database_url,
+    pool_pre_ping=True,
+    # Tests run each client on its own event loop, so connections must not be shared.
+    poolclass=NullPool if _settings.environment == "test" else None,
+)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
