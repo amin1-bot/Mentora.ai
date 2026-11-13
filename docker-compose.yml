@@ -1,0 +1,20 @@
+# Local development database. Needs Docker Desktop.
+# Start:  docker compose up -d     Stop:  docker compose down
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: mentora
+      POSTGRES_PASSWORD: mentora_local_only   # local dev only, never used anywhere real
+      POSTGRES_DB: mentora
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mentora"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
