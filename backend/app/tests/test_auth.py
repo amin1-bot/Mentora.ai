@@ -168,6 +168,14 @@ def test_guardian_signup(client: TestClient) -> None:
     assert body["consent_status"] is None
 
 
+def test_auth_me_reports_who_is_logged_in(client: TestClient) -> None:
+    assert client.get("/api/v1/auth/me").status_code == 401
+    signup_student(client, "ada@example.com")
+    body = client.get("/api/v1/auth/me").json()
+    assert body["user"]["email"] == "ada@example.com"
+    assert body["consent_status"] == "pending"
+
+
 # ---------- Protected routes, refresh, logout ----------
 
 

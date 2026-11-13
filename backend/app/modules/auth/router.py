@@ -8,7 +8,7 @@ from app.core.email import EmailSender, get_email_sender
 from app.core.rate_limit import limit_auth_attempts
 from app.core.security import ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE
 from app.modules.auth import service
-from app.modules.auth.dependencies import require_csrf
+from app.modules.auth.dependencies import CurrentUser, require_csrf
 from app.modules.auth.schemas import AuthResponse, LoginRequest, SignupRequest, UserOut
 from app.modules.students import service as students
 
@@ -84,6 +84,15 @@ async def refresh(request: Request, response: Response, session: SessionDep) -> 
     issued = await service.refresh(session, request.cookies.get(REFRESH_COOKIE))
     _set_session_cookies(response, issued)
     return await _auth_response(session, issued)
+
+
+@router.get("/me")
+async def me(user: CurrentUser, session: SessionDep) -> AuthResponse:
+    """Who is logged in. The frontend calls this on page load."""
+    consent = None
+    if user.role == "student":
+        consent = await students.consent_status(session, user.id)
+    return AuthResponse(user=UserOut.model_validate(user), consent_status=consent)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

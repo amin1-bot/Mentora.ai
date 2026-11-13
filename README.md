@@ -70,6 +70,75 @@ Errors always look like `{"error": {"code": "...", "message": "..."}}`.
 - Students with `pending` consent can log in and edit their profile. Lessons (Phase 5)
   must check `consent_status` before teaching.
 
+## Phase 4: classroom interface
+
+### Running the frontend
+
+Start the backend first (see "Running the backend"), then in a second terminal:
+```powershell
+cd frontend
+npm install        # once, and after dependency changes
+npm run dev        # http://localhost:5173
+```
+Vite forwards every `/api` request to the backend on port 8000, so the browser sees one
+site and the login cookies work with no extra setup.
+
+Checks:
+```powershell
+npm test           # Vitest + React Testing Library
+npm run lint       # ESLint
+npm run typecheck  # TypeScript
+npm run build      # production build into dist/
+```
+
+### Screens
+
+| URL | Who | What |
+|-----|-----|------|
+| `/` | logged out | landing page |
+| `/login`, `/signup` | logged out | student login and signup (asks for a guardian email under 18) |
+| `/guardian/consent#token=…` | guardian | the link from the email: create account or log in, review, approve |
+| `/home` | logged in | student: topics and the "waiting for approval" banner; guardian: placeholder |
+| `/classroom` | student | the four zones: topic strip, whiteboard, teacher panel, conversation box. Locked until a guardian approves |
+| `/progress` | student | empty until real lessons exist |
+| `/settings` | logged in | edit name and grade |
+
+Try the guardian flow locally: sign up a student under 18, copy the consent link printed
+in the backend console, log out, and open the link.
+
+### What is real and what is temporary
+
+- **Real:** signup, login, logout, session refresh, guardian consent, profile editing,
+  the classroom layout on desktop and phone, the whiteboard renderer.
+- **Temporary, and labeled "Temporary sample" on screen:** the topic list, the mastery
+  numbers, the whiteboard lesson and the conversation. They come from
+  `src/features/classroom/sampleLesson.ts`, which is deleted in Phase 5. Send, hint and
+  "I don't get it" are disabled until the AI teacher is connected.
+
+### Frontend layout
+
+```
+frontend/src/
+  app/          main.tsx, router, app shell (header and navigation)
+  features/     auth, dashboard, classroom (with whiteboard/), progress, settings
+  components/   Button, form fields, Alert, Card, TemporaryBadge
+  lib/          api.ts (the only code that calls the backend), error messages
+  i18n/         en.ts: every visible sentence lives here
+  styles/       tokens.css (colors, spacing, type) and global styles
+  types/        TypeScript shapes matching the API
+```
+
+### How the whiteboard stays safe
+
+The teacher sends structured blocks (`text`, `step`, `equation`, `question`), never
+HTML. `whiteboard/blocks.ts` drops anything malformed or of an unknown type, and a
+registry maps each type to a React component. Equations are drawn by KaTeX with
+`trust: false`, so LaTeX cannot create links or raw HTML (tested). New abilities in
+Phase 7 (graphs, diagrams) are new block types.
+
+KaTeX is used from Phase 4 (the blueprint lists it for Phase 7) because equations are
+already one of the MVP block types.
+
 ### 3. Git
 Git records every change to your code so you can undo mistakes and push to GitHub.
 
