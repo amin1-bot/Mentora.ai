@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     # Comma-separated list of origins allowed to call the API from a browser.
     cors_origins: str = "http://localhost:5173"
+    # Default points at the local Docker database from docker-compose.yml (local dev only).
+    database_url: str = "postgresql+asyncpg://mentora:mentora_local_only@localhost:5432/mentora"
 
     @property
     def cors_origin_list(self) -> list[str]:

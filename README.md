@@ -16,6 +16,7 @@ Run each install command in PowerShell. Windows will show an admin prompt for so
 | 5 | Docker Desktop (29.9) + PostgreSQL 17 container | Done |
 | 6 | Project folder structure | Done |
 | 7 | Hello FastAPI endpoint and /docs | Done |
+| 8 | Database connection, Alembic, 15 MVP tables, /health checks the database | Done |
 
 ### 3. Git
 Git records every change to your code so you can undo mistakes and push to GitHub.
@@ -68,15 +69,29 @@ python -m venv .venv                     # once
 .\.venv\Scripts\Activate.ps1             # every new terminal
 pip install -e ".[dev]"                  # once, and after dependency changes
 copy .env.example .env                   # once
+docker compose up -d                     # from the ai-teacher folder: starts PostgreSQL
+alembic upgrade head                     # creates or updates the tables
 uvicorn app.main:app --reload
 ```
 Open http://127.0.0.1:8000/docs. You should see `/api/v1/hello` and `/api/v1/health`.
+`/api/v1/health` should say `"database": "ok"`.
 
-Tests and lint:
+Tests and lint (the database must be running and migrated):
 ```powershell
 pytest
 ruff check .
 ```
+
+## Changing the database
+
+Never edit tables by hand. Change a `models.py`, then:
+```powershell
+alembic revision --autogenerate -m "describe the change"   # writes a migration file
+# read the new file in alembic/versions before applying it
+alembic upgrade head                                         # applies it
+alembic downgrade -1                                         # undoes the last one if needed
+```
+A new `models.py` file must also be imported in `app/db_models.py`, or Alembic won't see it.
 
 If PowerShell refuses to run `Activate.ps1`, run once:
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
