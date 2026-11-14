@@ -11,6 +11,7 @@ import { useSession } from "../auth/session";
 import styles from "./classroom.module.css";
 import { useEndLesson, useLesson } from "./useLesson";
 import { Whiteboard } from "./whiteboard/Whiteboard";
+import { LevelBadge, MasteryBar } from "../../components/Mastery";
 
 type MobileTab = "board" | "chat";
 
@@ -101,6 +102,14 @@ function Classroom({ sessionId }: { sessionId: string }) {
           <span className={styles.masteryText}>
             {t("classroom.hintsUsed", { used: lesson.hint_level, max: lesson.max_hint_level })}
           </span>
+        )}
+        {lesson && (
+          <div className={styles.mastery}>
+            <LevelBadge level={lesson.mastery_level} />
+            <div className={styles.masteryBar}>
+              <MasteryBar mastery={lesson.mastery} label={t("classroom.masteryLabel")} />
+            </div>
+          </div>
         )}
         <Button variant="secondary" onClick={finish} disabled={endLesson.isPending}>
           {t("classroom.endLesson")}

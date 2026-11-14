@@ -3,13 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "../../lib/api";
 import { streamTurn } from "../../lib/teacherStream";
-import type { LessonMessage, LessonSession, LessonState, Topic, TurnIntent } from "../../types/api";
+import type { LessonMessage, LessonSession, LessonState, TurnIntent } from "../../types/api";
+import { PROGRESS_KEY } from "../progress/useProgress";
 
 export type TeacherStatus = "waiting" | "thinking" | "explaining";
-
-export function useTopics() {
-  return useQuery({ queryKey: ["topics"], queryFn: () => api.get<Topic[]>("/topics") });
-}
 
 export function useStartLesson() {
   return useMutation({
@@ -76,6 +73,8 @@ export function useLesson(sessionId: string) {
           onDone: (message, newLesson) => {
             setMessages((m) => [...m, message]);
             setLesson(newLesson);
+            // Mastery may have changed: home and progress pages refetch when opened.
+            void client.invalidateQueries({ queryKey: PROGRESS_KEY });
           },
         });
         void client.invalidateQueries({ queryKey: key });

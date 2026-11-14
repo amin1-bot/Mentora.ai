@@ -1,11 +1,11 @@
-"""The teaching engine's rules: hint ladder, solution gating, difficulty changes."""
+"""The teaching engine's rules: hint ladder, solution gating, finished-question results."""
 
 from app.modules.adaptive.answers import AnswerCheck
-from app.modules.adaptive.engine import LessonState, decide
+from app.modules.adaptive.engine import LessonState, QuestionResult, decide
 
 CORRECT = AnswerCheck(20, True, None)
 WRONG = AnswerCheck(2000, False, "percent_forgot_divide_100")
-ON_QUESTION = LessonState(has_question=True, difficulty=3)
+ON_QUESTION = LessonState(has_question=True)
 
 
 def test_start_introduces_and_asks_a_question() -> None:
@@ -31,7 +31,7 @@ def test_no_solution_without_an_honest_attempt() -> None:
 
 
 def test_solution_after_attempt_and_all_hints_then_a_similar_question() -> None:
-    state = LessonState(has_question=True, hint_level=3, attempts_on_current=1, difficulty=3)
+    state = LessonState(has_question=True, hint_level=3, attempts_on_current=1)
     d = decide(state, "hint")
     assert d.action == "show_solution"
     assert d.reveal_current_answer and d.ask_new_question
@@ -39,7 +39,7 @@ def test_solution_after_attempt_and_all_hints_then_a_similar_question() -> None:
 
 
 def test_wrong_answer_after_all_hints_shows_solution() -> None:
-    state = LessonState(has_question=True, hint_level=3, difficulty=3)
+    state = LessonState(has_question=True, hint_level=3)
     assert decide(state, "answer", WRONG).action == "show_solution"
 
 
@@ -58,29 +58,25 @@ def test_second_wrong_answer_gives_the_next_hint() -> None:
     assert d.state.hint_level == 1
 
 
-def test_difficulty_rises_after_three_correct_in_a_row() -> None:
-    state = ON_QUESTION
-    levels = []
-    for _ in range(3):
-        d = decide(state, "answer", CORRECT)
-        assert d.action == "praise_and_next" and d.reveal_current_answer
-        levels.append(d.state.difficulty)
-        state = d.state
-    assert levels == [3, 3, 4]
+def test_correct_answer_reports_how_the_question_went() -> None:
+    state = LessonState(has_question=True, hint_level=1, attempts_on_current=1, wrong_on_current=1)
+    d = decide(state, "answer", CORRECT)
+    assert d.action == "praise_and_next" and d.reveal_current_answer and d.ask_new_question
+    assert d.finished_question == QuestionResult(solved=True, wrong_tries=1, hints_used=1)
+    assert d.state.hint_level == 0 and d.state.wrong_on_current == 0
 
 
-def test_difficulty_drops_after_repeated_mistakes() -> None:
-    state = LessonState(has_question=True, hint_level=3, wrong_on_current=1, difficulty=3)
+def test_solution_reports_an_unsolved_question_including_the_last_wrong_try() -> None:
+    state = LessonState(has_question=True, hint_level=3, attempts_on_current=1, wrong_on_current=1)
     d = decide(state, "answer", WRONG)
     assert d.action == "show_solution"
-    assert d.state.difficulty == 2
+    assert d.finished_question == QuestionResult(solved=False, wrong_tries=2, hints_used=3)
 
 
-def test_difficulty_stays_within_1_and_5() -> None:
-    top = LessonState(has_question=True, difficulty=5, correct_streak=2)
-    assert decide(top, "answer", CORRECT).state.difficulty == 5
-    bottom = LessonState(has_question=True, hint_level=3, wrong_on_current=1, difficulty=1)
-    assert decide(bottom, "answer", WRONG).state.difficulty == 1
+def test_unfinished_questions_report_nothing() -> None:
+    for event, check in (("answer", WRONG), ("hint", None), ("dont_get_it", None)):
+        assert decide(ON_QUESTION, event, check).finished_question is None  # type: ignore[arg-type]
+    assert decide(LessonState(has_question=False), "start").finished_question is None
 
 
 def test_dont_get_it_explains_differently_without_revealing() -> None:

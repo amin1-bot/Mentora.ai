@@ -48,18 +48,52 @@ def same_number(a: float, b: float) -> bool:
 
 
 def known_wrong_answers(answer_data: dict[str, Any]) -> dict[str, float]:
-    """Misconception code -> the wrong answer that misconception produces."""
-    if answer_data.get("kind") != "percent_of":
-        return {}
-    p, n = float(answer_data["percent"]), float(answer_data["of"])
-    wrong = {
-        "percent_forgot_divide_100": p * n,
-        "percent_subtracted": n - p,
-        "percent_gave_percent": p,
-    }
-    if p:
-        wrong["percent_divided_by_percent"] = n / p
-    return wrong
+    """Misconception code -> the wrong answer that misconception produces.
+
+    Codes match curriculum/seed_data.py MISCONCEPTIONS. When two mistakes give the same
+    number, the first one listed wins.
+    """
+    kind = answer_data.get("kind")
+    if kind == "percent_to_decimal":
+        p = float(answer_data["percent"])
+        return {
+            "decimal_no_divide": p,
+            "decimal_divided_by_10": p / 10,
+            "decimal_divided_by_1000": p / 1000,
+        }
+    if kind == "fraction_to_percent":
+        num, den = int(answer_data["numerator"]), int(answer_data["denominator"])
+        return {
+            "fraction_digits_joined": float(f"{num}{den}"),
+            "fraction_forgot_100": num / den,
+            "fraction_upside_down": den / num * 100,
+        }
+    if kind == "percent_of":
+        p, n = float(answer_data["percent"]), float(answer_data["of"])
+        wrong = {
+            "percent_forgot_divide_100": p * n,
+            "percent_subtracted": n - p,
+            "percent_gave_percent": p,
+        }
+        if p:
+            wrong["percent_divided_by_percent"] = n / p
+        return wrong
+    if kind == "percent_change":
+        start, p = float(answer_data["start"]), float(answer_data["percent"])
+        sign = 1 if answer_data["direction"] == "up" else -1
+        return {
+            "change_gave_amount": start * p / 100,
+            "change_used_percent_as_number": start + sign * p,
+            "change_wrong_direction": start * (1 - sign * p / 100),
+        }
+    if kind == "percent_express":
+        part, whole = float(answer_data["part"]), float(answer_data["whole"])
+        return {
+            "express_upside_down": whole / part * 100,
+            "express_forgot_100": part / whole,
+            "express_gave_difference": whole - part,
+        }
+    return {}
 
 
 @dataclass(frozen=True)

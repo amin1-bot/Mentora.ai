@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { Alert } from "../../components/Alert";
 import { Button } from "../../components/Button";
@@ -8,7 +8,9 @@ import { TextField } from "../../components/Form";
 import { Card, Loading } from "../../components/Temporary";
 import { errorMessage } from "../../lib/errors";
 import { useSession } from "../auth/session";
-import { useStartLesson, useTopics } from "../classroom/useLesson";
+import { LevelBadge, MasteryBar } from "../../components/Mastery";
+import { useStartLesson } from "../classroom/useLesson";
+import { findSkill, useProgress } from "../progress/useProgress";
 import styles from "./dashboard.module.css";
 import { useInviteGuardian, useProfile } from "./students";
 
@@ -52,36 +54,77 @@ function StudentHome() {
 function TopicList({ locked }: { locked: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const topics = useTopics();
+  const progress = useProgress();
   const start = useStartLesson();
 
-  if (topics.isPending) return <Loading />;
-  if (topics.isError) return <Alert tone="error">{errorMessage(topics.error, t)}</Alert>;
-  if (topics.data.length === 0) return <p>{t("dashboard.noTopics")}</p>;
+  if (progress.isPending) return <Loading />;
+  if (progress.isError) return <Alert tone="error">{errorMessage(progress.error, t)}</Alert>;
+  const { areas, recommended_skill_id } = progress.data;
+  if (areas.length === 0) return <p>{t("dashboard.noTopics")}</p>;
+
+  const recommended = findSkill(progress.data, recommended_skill_id);
+  const open = (skillId: string) =>
+    start.mutate(skillId, { onSuccess: (s) => navigate(`/classroom/${s.id}`) });
 
   return (
     <>
       {start.isError && <Alert tone="error">{errorMessage(start.error, t)}</Alert>}
-      <ul className={styles.topics}>
-        {topics.data.map((topic) => (
-          <li key={topic.id} className={styles.topic}>
-            <h3 className={styles.topicName}>{topic.name}</h3>
-            <p className={styles.masteryLabel}>
-              {t("dashboard.topicMeta", { grades: topic.grade_band, count: topic.question_count })}
-            </p>
-            <Button
-              variant="secondary"
-              fullWidth
-              disabled={locked || start.isPending}
-              onClick={() =>
-                start.mutate(topic.id, { onSuccess: (s) => navigate(`/classroom/${s.id}`) })
-              }
-            >
-              {t("dashboard.startLesson")}
-            </Button>
-          </li>
-        ))}
-      </ul>
+      {recommended ? (
+        <div className={styles.recommended}>
+          <div>
+            <p className={styles.recommendedLabel}>{t("dashboard.recommendedTitle")}</p>
+            <h3 className={styles.topicName}>{recommended.name}</h3>
+            <p className={styles.masteryLabel}>{t("dashboard.recommendedBody")}</p>
+          </div>
+          <Button disabled={locked || start.isPending} onClick={() => open(recommended.id)}>
+            {recommended.level === "not_started"
+              ? t("dashboard.startLesson")
+              : t("dashboard.continueLesson")}
+          </Button>
+        </div>
+      ) : (
+        <Alert tone="success">{t("dashboard.allMastered")}</Alert>
+      )}
+      {areas.map((area) => (
+        <div key={area.id} className={styles.area}>
+          <div className={styles.sectionHead}>
+            <h3 className={styles.areaName}>{area.name}</h3>
+            <Link to="/progress" className={styles.progressLink}>
+              {t("dashboard.viewProgress")}
+            </Link>
+          </div>
+          <ul className={styles.topics}>
+            {area.skills.map((skill) => (
+              <li key={skill.id} className={styles.topic}>
+                <div className={styles.topicHead}>
+                  <h4 className={styles.topicName}>{skill.name}</h4>
+                  <LevelBadge level={skill.level} />
+                </div>
+                <p className={styles.masteryLabel}>
+                  {t("dashboard.topicMeta", {
+                    grades: skill.grade_band,
+                    count: skill.question_count,
+                  })}
+                </p>
+                <MasteryBar
+                  mastery={skill.mastery}
+                  label={t("progress.skillMastery", { name: skill.name })}
+                />
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  disabled={locked || start.isPending}
+                  onClick={() => open(skill.id)}
+                >
+                  {skill.level === "not_started"
+                    ? t("dashboard.startLesson")
+                    : t("dashboard.continueLesson")}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </>
   );
 }

@@ -21,6 +21,8 @@ class LessonOut(BaseModel):
     question_text: str | None
     hint_level: int
     max_hint_level: int = 3
+    mastery: float = 0.0  # saved mastery for this topic, 0..1
+    mastery_level: str = "not_started"
 
 
 class MessageOut(BaseModel):

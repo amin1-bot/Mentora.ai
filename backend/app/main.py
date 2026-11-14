@@ -19,6 +19,7 @@ from app.core.errors import register_error_handlers
 from app.modules.auth.router import router as auth_router
 from app.modules.classroom.router import router as classroom_router
 from app.modules.curriculum.router import router as curriculum_router
+from app.modules.progress.router import router as progress_router
 from app.modules.students.router import guardians_router, students_router
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ def create_app() -> FastAPI:
     api.include_router(guardians_router)
     api.include_router(curriculum_router)
     api.include_router(classroom_router)
+    api.include_router(progress_router)
 
     app.include_router(api)
     register_error_handlers(app)

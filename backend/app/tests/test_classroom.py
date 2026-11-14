@@ -1,27 +1,17 @@
 """Lessons through the real API, with the scripted provider standing in for the model."""
 
 import json
-from collections.abc import Iterator
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.ai.factory import get_ai_provider
 from app.core.config import get_settings
 from app.main import app
-from app.modules.curriculum.seed_data import PERCENTAGES_ID, seed_id
+from app.modules.curriculum.seed_data import PERCENT_OF_ID, PERCENTAGES_ID, seed_id
 from app.tests.fakes import Reply, ScriptedProvider
 from app.tests.helpers import new_client, query, signup_student, with_csrf
 
 Q_25_OF_80 = seed_id("question:percent_of:25:80")
-
-
-@pytest.fixture
-def teacher() -> Iterator[ScriptedProvider]:
-    provider = ScriptedProvider()
-    app.dependency_overrides[get_ai_provider] = lambda: provider
-    yield provider
-    app.dependency_overrides.pop(get_ai_provider, None)
 
 
 def sse(text: str) -> list[tuple[str, dict]]:
@@ -48,7 +38,7 @@ def adult_student(client: TestClient, email: str = "sam@example.com") -> str:
 
 def start(client: TestClient) -> dict:
     r = client.post(
-        "/api/v1/sessions", json={"topic_id": str(PERCENTAGES_ID)}, headers=with_csrf(client)
+        "/api/v1/sessions", json={"topic_id": str(PERCENT_OF_ID)}, headers=with_csrf(client)
     )
     assert r.status_code in (200, 201), r.text
     return r.json()
@@ -77,14 +67,30 @@ def set_question(session_id: str, question_id=Q_25_OF_80) -> None:
 def test_topics_list_the_seeded_question_bank(client: TestClient) -> None:
     adult_student(client)
     topics = client.get("/api/v1/topics").json()
-    assert [t["name"] for t in topics] == ["Percentages"]
-    assert topics[0]["question_count"] == 15
+    # Four skills of the Percentages area, in learning order (prerequisites first).
+    assert [t["name"] for t in topics] == [
+        "Percents, decimals and fractions",
+        "One number as a percentage of another",
+        "Percent of an amount",
+        "Percentage increase and decrease",
+    ]
+    assert {t["area_name"] for t in topics} == {"Percentages"}
+    assert {t["area_id"] for t in topics} == {str(PERCENTAGES_ID)}
+    assert [t["question_count"] for t in topics] == [20, 15, 15, 15]
+
+
+def test_the_topic_area_itself_cannot_be_taught(client: TestClient) -> None:
+    adult_student(client)
+    r = client.post(
+        "/api/v1/sessions", json={"topic_id": str(PERCENTAGES_ID)}, headers=with_csrf(client)
+    )
+    assert r.status_code == 404
 
 
 def test_lessons_need_guardian_consent(client: TestClient) -> None:
     signup_student(client, "teen@example.com", age=15)
     r = client.post(
-        "/api/v1/sessions", json={"topic_id": str(PERCENTAGES_ID)}, headers=with_csrf(client)
+        "/api/v1/sessions", json={"topic_id": str(PERCENT_OF_ID)}, headers=with_csrf(client)
     )
     assert r.status_code == 403
     assert r.json()["error"]["code"] == "consent_required"

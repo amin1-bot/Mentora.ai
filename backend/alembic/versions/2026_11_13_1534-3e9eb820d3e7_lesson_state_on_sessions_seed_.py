@@ -36,21 +36,15 @@ def upgrade() -> None:
 
 
 def seed_curriculum() -> None:
-    """Insert the Percentages question bank. Safe to run again (existing rows are kept)."""
-    from sqlalchemy.dialects.postgresql import insert
+    """Insert the question bank. Safe to run again (rows are added or updated).
 
-    from app.modules.curriculum import seed_data as d
-    from app.modules.curriculum.models import Misconception, Question, Subject, Topic
+    Uses the shared seed (app/modules/curriculum/seed.py), so a fresh database gets the
+    current question bank here; later seed migrations re-apply it to older databases.
+    """
+    from app.modules.curriculum.seed import seed_statements
 
-    op.execute(insert(Subject).values(d.SUBJECTS).on_conflict_do_nothing())
-    op.execute(insert(Topic).values(d.TOPICS).on_conflict_do_nothing())
-    op.execute(
-        insert(Misconception)
-        .values([{**m, "id": d.seed_id(f"misconception:{m['code']}"), "topic_id": d.PERCENTAGES_ID}
-                 for m in d.MISCONCEPTIONS])
-        .on_conflict_do_nothing()
-    )
-    op.execute(insert(Question).values(d.QUESTIONS).on_conflict_do_nothing())
+    for stmt in seed_statements():
+        op.execute(stmt)
 
 
 def downgrade() -> None:

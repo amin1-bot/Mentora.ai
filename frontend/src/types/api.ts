@@ -63,6 +63,8 @@ export interface Topic {
   name: string;
   grade_band: string;
   question_count: number;
+  area_id: string;
+  area_name: string;
 }
 
 /** What the browser may know about a lesson. Never contains an answer. */
@@ -71,6 +73,36 @@ export interface LessonState {
   question_text: string | null;
   hint_level: number;
   max_hint_level: number;
+  mastery: number; // saved mastery for this topic, 0..1
+  mastery_level: MasteryLevel;
+}
+
+export type MasteryLevel = "not_started" | "learning" | "practising" | "mastered";
+
+export interface SkillProgress {
+  id: string;
+  name: string;
+  grade_band: string;
+  question_count: number;
+  mastery: number;
+  level: MasteryLevel;
+  questions_done: number;
+  questions_solved: number;
+  last_practiced_at: string | null;
+  needs_first: string[];
+  history: number[];
+}
+
+export interface AreaProgress {
+  id: string;
+  name: string;
+  mastery: number;
+  skills: SkillProgress[];
+}
+
+export interface Progress {
+  areas: AreaProgress[];
+  recommended_skill_id: string | null;
 }
 
 export interface LessonMessage {

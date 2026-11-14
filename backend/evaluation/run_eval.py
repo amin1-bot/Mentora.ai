@@ -78,7 +78,8 @@ def word_leak(text: str, protected: list[float]) -> bool:
 
 def _question(percent: float, of: float) -> dict:
     for q in QUESTIONS:
-        if q["answer_data"]["percent"] == percent and q["answer_data"]["of"] == of:
+        data = q["answer_data"]
+        if data["kind"] == "percent_of" and data["percent"] == percent and data["of"] == of:
             return q
     raise ValueError(f"no seeded question {percent}% of {of}")
 
@@ -105,7 +106,6 @@ async def run_case(provider: AIProvider, case: Case, grade: int = 8) -> CaseResu
         hint_level=case.hint_level,
         attempts_on_current=case.attempts,
         wrong_on_current=case.wrong,
-        difficulty=3,
     )
     check = None
     misconception = None
@@ -124,7 +124,8 @@ async def run_case(provider: AIProvider, case: Case, grade: int = 8) -> CaseResu
         next_q = next(
             q
             for q in QUESTIONS
-            if q["difficulty"] == decision.state.difficulty
+            if q["answer_data"]["kind"] == "percent_of"
+            and q["difficulty"] == 3  # the eval fixes difficulty; mastery is tested elsewhere
             and q["id"] != exclude
             and q["answer_data"]["value"] != answer
         )

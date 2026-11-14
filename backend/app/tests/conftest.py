@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 from app.core.email import Email, _outbox  # noqa: E402
 from app.core.rate_limit import auth_limiter  # noqa: E402
 from app.db_models import Base  # noqa: E402
+from app.tests.fakes import ScriptedProvider  # noqa: E402
 from app.tests.helpers import new_client  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -58,26 +59,14 @@ async def _empty_all_tables() -> None:
 
 
 async def _ensure_curriculum_seed() -> None:
-    """Same rows as the seed migration; existing rows are kept."""
-    from sqlalchemy.dialects.postgresql import insert
-
-    from app.modules.curriculum import seed_data as d
-    from app.modules.curriculum.models import Misconception, Question, Subject, Topic
+    """Same rows as the seed migrations (added or updated, never removed)."""
+    from app.modules.curriculum.seed import seed_statements
 
     engine = create_async_engine(os.environ["DATABASE_URL"])
-    misconceptions = [
-        {**m, "id": d.seed_id(f"misconception:{m['code']}"), "topic_id": d.PERCENTAGES_ID}
-        for m in d.MISCONCEPTIONS
-    ]
     try:
         async with engine.begin() as conn:
-            for model, rows in (
-                (Subject, d.SUBJECTS),
-                (Topic, d.TOPICS),
-                (Misconception, misconceptions),
-                (Question, d.QUESTIONS),
-            ):
-                await conn.execute(insert(model).values(rows).on_conflict_do_nothing())
+            for stmt in seed_statements():
+                await conn.execute(stmt)
     finally:
         await engine.dispose()
 
@@ -105,3 +94,15 @@ def outbox() -> list[Email]:
 def client() -> Iterator[TestClient]:
     with new_client() as c:
         yield c
+
+
+@pytest.fixture
+def teacher() -> Iterator[ScriptedProvider]:
+    """The scripted stand-in for the AI model, used by every lesson test."""
+    from app.ai.factory import get_ai_provider
+    from app.main import app
+
+    provider = ScriptedProvider()
+    app.dependency_overrides[get_ai_provider] = lambda: provider
+    yield provider
+    app.dependency_overrides.pop(get_ai_provider, None)

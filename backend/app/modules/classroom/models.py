@@ -52,7 +52,8 @@ class LearningSession(UUIDPrimaryKey, CreatedAt, Base):
         SmallInteger, nullable=False, server_default="0"
     )
     wrong_on_current: Mapped[int] = mapped_column(SmallInteger, nullable=False, server_default="0")
-    # In-session difficulty and streak. Persistent mastery arrives with the adaptive slice.
+    # Difficulty picked for the current question (from saved mastery), and the run of
+    # correct answers in this lesson. Saved mastery itself lives in topic_mastery.
     difficulty: Mapped[int] = mapped_column(SmallInteger, nullable=False, server_default="1")
     correct_streak: Mapped[int] = mapped_column(SmallInteger, nullable=False, server_default="0")
 

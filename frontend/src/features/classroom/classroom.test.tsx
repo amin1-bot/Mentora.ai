@@ -13,7 +13,14 @@ const me = (consent_status: string) =>
     consent_status,
   });
 
-const lessonState = { has_question: true, question_text: "What is 25% of 80?", hint_level: 0, max_hint_level: 3 };
+const lessonState = {
+  has_question: true,
+  question_text: "What is 25% of 80?",
+  hint_level: 0,
+  max_hint_level: 3,
+  mastery: 0,
+  mastery_level: "not_started",
+};
 
 function session(messages: unknown[] = []) {
   return {
@@ -103,7 +110,10 @@ describe("classroom", () => {
           ev("delta", { text: "Here is a draft" }),
           ev("reset", {}),
           ev("delta", { text: "Remember to divide by 100." }),
-          ev("done", { message: teacherMessage("m2", "Remember to divide by 100."), lesson: lessonState }),
+          ev("done", {
+            message: teacherMessage("m2", "Remember to divide by 100."),
+            lesson: { ...lessonState, mastery: 0.19, mastery_level: "learning" },
+          }),
         ]);
       }
       return undefined;
@@ -117,6 +127,12 @@ describe("classroom", () => {
     expect(screen.queryByText("Here is a draft")).toBeNull();
     expect(screen.getByText("2000")).toBeInTheDocument(); // the student's own message
     expect(sent).toEqual({ intent: "message", text: "2000" });
+    // The saved mastery from the server is shown in the topic strip.
+    expect(screen.getByRole("progressbar", { name: "Your mastery of this skill" })).toHaveAttribute(
+      "value",
+      "19",
+    );
+    expect(screen.getByText("Learning")).toBeInTheDocument();
   });
 
   it("explains clearly when no AI provider is configured", async () => {

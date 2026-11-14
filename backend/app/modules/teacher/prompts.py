@@ -66,6 +66,7 @@ HINT_RUNGS = {
     1: "Hint 1 of 3: a conceptual nudge only, such as what 'percent' means. No calculation.",
     2: "Hint 2 of 3: show only the first step of the calculation, not the result.",
     3: "Hint 3 of 3: work through a similar problem with different numbers, fully. "
+    "None of its numbers, including its result, may equal the hidden answer. "
     "Do not solve the student's actual question.",
 }
 
@@ -107,7 +108,8 @@ def turn_instruction(ctx: TurnContext) -> str:
             lines.append(f"Its answer is {_fmt(ctx.current.answer)}; you may say it now.")
         else:
             lines.append(
-                f"Its answer is {_fmt(ctx.current.answer)}. Never say or write this number."
+                f"Its answer is {_fmt(ctx.current.answer)}. Never say or write this number, "
+                "in digits or in words, not even inside an example."
             )
     if ctx.student_answer is not None:
         lines.append(f"The student answered: {_fmt(ctx.student_answer)}.")
@@ -122,7 +124,8 @@ def turn_instruction(ctx: TurnContext) -> str:
     if ctx.stricter:
         lines.append(
             "IMPORTANT: your previous draft revealed an answer that must stay hidden. "
-            "Write a new reply that does not contain that number anywhere."
+            "Write a new reply that does not contain that number anywhere, in digits or in "
+            "words, and pick example numbers that avoid it."
         )
     return "\n".join(lines)
 

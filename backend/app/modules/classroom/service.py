@@ -7,7 +7,10 @@ One turn, in the order of the blueprint's "How one lesson turn flows":
  4. The engine decides the teaching action and, if needed, picks the next question.
  5. The prompt is built from fixed rules, grade level, the action and recent messages.
  6. The model streams its reply through the leak guard; the board is validated.
- 7. Messages, the attempt, the new lesson state and AI cost are saved.
+ 7. Messages, the attempt, the mastery change, the lesson state and AI cost are saved.
+
+Mastery is updated once per finished question (solved, or solution shown) and decides how
+hard the next question is, so difficulty carries over between lessons.
 """
 
 import uuid
@@ -24,6 +27,8 @@ from app.core.audit import record_audit
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.errors import Conflict, Forbidden, NotFound, TooManyRequests
+from app.modules.adaptive import mastery
+from app.modules.adaptive import service as adaptive
 from app.modules.adaptive.answers import AnswerCheck, check_answer, parse_number
 from app.modules.adaptive.engine import MAX_HINT, EventKind, LessonState, decide
 from app.modules.adaptive.models import QuestionAttempt
@@ -74,11 +79,15 @@ async def _own_session(db: AsyncSession, student: User, session_id: uuid.UUID) -
 
 async def _lesson_out(db: AsyncSession, ls: LearningSession) -> LessonOut:
     question = await repo.get_question(db, ls.current_question_id)
+    progress = (await adaptive.masteries_for(db, ls.student_id)).get(ls.topic_id)
+    score = progress.mastery_score if progress else 0.0
     return LessonOut(
         has_question=question is not None,
         question_text=question.text if question else None,
         hint_level=ls.hint_level,
         max_hint_level=MAX_HINT,
+        mastery=score,
+        mastery_level=mastery.level(score, progress.attempts if progress else 0),
     )
 
 
@@ -261,6 +270,7 @@ async def _run_turn(
         {"role": m.role, "content": m.content}
         for m in await repo.recent_messages(db, ls.id, settings.ai_history_messages)
     ]
+    attempt_id: uuid.UUID | None = None
     student_msg: Message | None = None
     if student_text:
         student_msg = await _save_message(db, ls.id, "student", student_text)
@@ -273,8 +283,10 @@ async def _run_turn(
             else None
         )
         misconception_text = misconception.description if misconception else None
+        attempt_id = uuid.uuid4()
         db.add(
             QuestionAttempt(
+                id=attempt_id,
                 session_id=ls.id,
                 student_id=plan.student_id,
                 question_id=current.id,
@@ -291,18 +303,30 @@ async def _run_turn(
         hint_level=ls.hint_level,
         attempts_on_current=ls.attempts_on_current,
         wrong_on_current=ls.wrong_on_current,
-        difficulty=ls.difficulty,
         correct_streak=ls.correct_streak,
     )
     decision = decide(state, event, check)
+
+    # 4b. A finished question updates saved mastery, which sets the next difficulty.
+    if decision.finished_question is not None and current is not None:
+        await adaptive.record_question(
+            db,
+            student_id=plan.student_id,
+            topic_id=topic.id,
+            difficulty=current.difficulty,
+            result=decision.finished_question,
+            attempt_id=attempt_id,
+        )
     next_q: Question | None = None
+    next_difficulty = ls.difficulty
     if decision.ask_new_question:
+        next_difficulty = await adaptive.next_difficulty(db, plan.student_id, topic.id)
         avoid = {float(current.answer_data["value"])} if current else set()
         next_q = await repo.pick_question(
             db,
             topic_id=topic.id,
             session_id=ls.id,
-            difficulty=decision.state.difficulty,
+            difficulty=next_difficulty,
             exclude={current.id} if current else set(),
             avoid_answers=avoid,
         )
@@ -360,7 +384,7 @@ async def _run_turn(
         s.attempts_on_current,
         s.wrong_on_current,
     )
-    ls.difficulty, ls.correct_streak = s.difficulty, s.correct_streak
+    ls.difficulty, ls.correct_streak = next_difficulty, s.correct_streak
     if next_q is not None:
         ls.current_question_id = next_q.id
     for usage, latency in zip(result.usage, result.latency_ms, strict=False):
