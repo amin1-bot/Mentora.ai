@@ -80,7 +80,7 @@ class GenerationResult:
     first_text_ms: int | None = None
     blocked_leaks: int = 0  # times the guard stopped a leaking draft
     board_blocks_dropped: int = 0
-    fallback: str | None = None  # "leak", "refusal", "unavailable", "not_configured"
+    fallback: str | None = None  # "leak", "refusal", "unavailable", "not_configured", "empty"
     raw_leak_texts: list[str] = field(default_factory=list)  # for the eval report only
 
 
@@ -150,6 +150,14 @@ async def generate_reply(
         )
         result.text = guard.text.strip()
         result.board = to_frontend_blocks(board)
+        if not result.text:
+            # Some models reply only on the whiteboard, or not at all: never show the
+            # student an empty message.
+            if guard.text:  # only whitespace was streamed
+                yield Reset()
+            result.fallback = None if board else "empty"
+            result.text = FALLBACK_RESPONSES["board_only" if board else "empty"]
+            yield Delta(result.text)
         return
 
     # Every attempt tried to reveal the answer: use a safe line written by code.

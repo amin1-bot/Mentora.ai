@@ -96,3 +96,21 @@ def test_provider_outage_is_reported() -> None:
     provider = ScriptedProvider([Reply([], error="unavailable")])
     _, result = _run(provider, [20])
     assert result.fallback == "unavailable"
+
+
+def test_board_only_reply_gets_a_spoken_line() -> None:
+    provider = ScriptedProvider(
+        [Reply([], board=[{"type": "step", "content": "Write 25% as a fraction"}])]
+    )
+    events, result = _run(provider, [20])
+    assert _shown(events) == "Have a look at the board."
+    assert result.board == [{"type": "step", "number": 1, "text": "Write 25% as a fraction"}]
+    assert result.fallback is None
+
+
+def test_completely_empty_reply_is_never_shown_empty() -> None:
+    events, result = _run(ScriptedProvider([Reply(["   "])]), [20])
+    assert (
+        _shown(events) == "Let's take it one step at a time. What do you think the first step is?"
+    )
+    assert result.fallback == "empty" and result.board == []

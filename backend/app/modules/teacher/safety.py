@@ -33,6 +33,8 @@ FALLBACK_RESPONSES = {
     "refusal": "Let's get back to our maths. Have a look at the question on the board.",
     "leak": "Let's take it one step at a time. What do you think the first step is?",
     "unavailable": "Sorry, I'm having trouble thinking right now. Please try again in a moment.",
+    "board_only": "Have a look at the board.",
+    "empty": "Let's take it one step at a time. What do you think the first step is?",
 }
 
 

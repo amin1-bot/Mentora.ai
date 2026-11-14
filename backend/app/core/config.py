@@ -4,16 +4,22 @@ Secrets never live in code. Copy .env.example to .env for local development.
 """
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 # Only for local development. Startup refuses this value outside the local environment.
 LOCAL_DEV_JWT_SECRET = "local-dev-only-not-a-real-secret-change-me"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # backend/.env, found the same way whichever folder the server is started from.
+    model_config = SettingsConfigDict(
+        env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     app_name: str = "Mentora API"
     environment: str = "local"  # local | test | staging | production
@@ -42,9 +48,14 @@ class Settings(BaseSettings):
     guardian_invite_days: int = 7
 
     # --- AI teacher (blueprint section 8) ---
-    ai_provider: str = "anthropic"  # "anthropic" or "none"
+    ai_provider: str = "anthropic"  # "anthropic", "openai_compatible" or "none"
     # Leave empty to let the SDK find credentials (ANTHROPIC_API_KEY or `ant auth login`).
     anthropic_api_key: str | None = None
+    # For ai_provider="openai_compatible" (free tiers for development, e.g. Google Gemini).
+    # Free tiers may train on requests: made-up test students only, never real ones.
+    ai_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    ai_api_key: str | None = None
+    ai_reasoning_effort: str | None = None  # sent only if set; not every model supports it
     ai_model: str = "claude-opus-5-5"
     ai_effort: str = "low"  # low | medium | high: thinking depth per reply (speed vs depth)
     ai_max_output_tokens: int = 4000  # per reply, includes the model's thinking

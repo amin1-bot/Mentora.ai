@@ -21,10 +21,17 @@ def _run_once() -> None:
 
 @pytest.fixture
 def no_credentials(monkeypatch: pytest.MonkeyPatch, tmp_path) -> pytest.MonkeyPatch:
-    for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE"):
+    # Hide every place the SDK looks for credentials, including a real `ant auth login`
+    # (stored under %APPDATA%\Anthropic on Windows), so this test never calls the API.
+    for name in (
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_PROFILE",
+        "ANTHROPIC_CONFIG_DIR",
+    ):
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    for name in ("HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "XDG_CONFIG_HOME"):
+        monkeypatch.setenv(name, str(tmp_path))
     return monkeypatch
 
 

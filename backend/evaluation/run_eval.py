@@ -4,8 +4,10 @@
     python -m evaluation.run_eval                      # model from settings
     python -m evaluation.run_eval --model claude-sonnet-5-5 --effort low
     python -m evaluation.run_eval --repeat 3           # each case 3 times
+    python -m evaluation.run_eval --pause 8            # free tiers: wait between cases
 
-This calls the real API and costs money (a few cents per full run at today's prices).
+This calls the real API of the configured provider (AI_PROVIDER in backend/.env). With
+Claude it costs a few cents per full run; a free development tier costs nothing.
 Each run writes evaluation/reports/<timestamp>-<model>.json and prints a summary.
 
 Metrics (blueprint section 12):
@@ -205,34 +207,41 @@ def summarize(results: list[CaseResult], model: str) -> dict:
 
 
 async def run(
-    provider: AIProvider, model: str, repeat: int = 1, cases: list[Case] | None = None
+    provider: AIProvider,
+    model: str,
+    repeat: int = 1,
+    cases: list[Case] | None = None,
+    pause: float = 0.0,
 ) -> tuple[dict, list[CaseResult]]:
     results = []
     for _ in range(repeat):
         for case in cases or CASES:
+            if results and pause:
+                await asyncio.sleep(pause)  # stay under a free tier's requests-per-minute
             results.append(await run_case(provider, case))
     return summarize(results, model), results
 
 
 def main() -> None:
-    from app.ai.providers.anthropic_provider import AnthropicProvider
+    from app.ai.factory import build_provider
 
     settings = get_settings()
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--model", default=settings.ai_model)
-    parser.add_argument("--effort", default=settings.ai_effort)
+    parser.add_argument("--effort", default=None, help="thinking effort (provider default)")
     parser.add_argument("--repeat", type=int, default=1)
+    parser.add_argument("--pause", type=float, default=0.0, help="seconds between cases")
     args = parser.parse_args()
 
-    provider = AnthropicProvider(
-        model=args.model, effort=args.effort, api_key=settings.anthropic_api_key
-    )
-    summary, results = asyncio.run(run(provider, args.model, args.repeat))
+    provider = build_provider(settings, model=args.model, effort=args.effort)
+    if provider is None:
+        raise SystemExit("No AI provider is configured (AI_PROVIDER in backend/.env).")
+    summary, results = asyncio.run(run(provider, args.model, args.repeat, pause=args.pause))
     summary["effort"] = args.effort
 
     out_dir = Path(__file__).parent / "reports"
     out_dir.mkdir(exist_ok=True)
-    path = out_dir / f"{time.strftime('%Y%m%d-%H%M%S')}-{args.model}.json"
+    path = out_dir / f"{time.strftime('%Y%m%d-%H%M%S')}-{args.model.replace('/', '_')}.json"
     path.write_text(
         json.dumps({"summary": summary, "results": [asdict(r) for r in results]}, indent=2),
         encoding="utf-8",

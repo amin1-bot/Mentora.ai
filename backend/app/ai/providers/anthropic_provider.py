@@ -87,8 +87,13 @@ class AnthropicProvider:
             anthropic.CredentialsError,  # a login profile is configured but unusable
         ) as exc:
             raise AIProviderError("not_configured") from exc
-        except (anthropic.APIStatusError, anthropic.APIConnectionError) as exc:
-            logger.warning("AI provider error: %s", type(exc).__name__)
+        except anthropic.APIStatusError as exc:
+            # The API's own reason (e.g. "credit balance is too low"); it never contains
+            # anything the student wrote, so it is safe to log.
+            logger.warning("AI provider error %s: %s", exc.status_code, exc.message)
+            raise AIProviderError("unavailable") from exc
+        except anthropic.APIConnectionError as exc:
+            logger.warning("AI provider connection error: %s", type(exc).__name__)
             raise AIProviderError("unavailable") from exc
         except anthropic.AnthropicError as exc:
             logger.warning("AI provider error: %s", type(exc).__name__)
