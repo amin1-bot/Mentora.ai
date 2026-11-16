@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -20,6 +20,8 @@ const lessonState = {
   max_hint_level: 3,
   mastery: 0,
   mastery_level: "not_started",
+  question_type: "numeric",
+  question_options: null,
 };
 
 function session(messages: unknown[] = []) {
@@ -194,5 +196,60 @@ describe("classroom", () => {
     const router = renderApp("/classroom/L1");
     expect(await screen.findByRole("heading", { name: "Guardian home" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/home");
+  });
+
+  it("multiple choice: options on the board and one-tap answer buttons that send the letter", async () => {
+    const choice = {
+      ...lessonState,
+      question_text: "In the Orders table, CustomerID is a...",
+      question_type: "multiple_choice",
+      question_options: ["Primary key", "Foreign key", "Derived attribute"],
+    };
+    const bodies: unknown[] = [];
+    fakeBackend((url, init) => {
+      if (url.endsWith("/auth/me")) return me("approved");
+      if (url.endsWith("/sessions/L1"))
+        return jsonResponse(200, {
+          ...session([
+            teacherMessage("m1", "Which one is it?", [
+              { type: "question", text: choice.question_text, options: choice.question_options },
+            ]),
+          ]),
+          lesson: choice,
+        });
+      if (url.endsWith("/sessions/L1/messages")) {
+        bodies.push(JSON.parse(String(init?.body)));
+        return sseResponse([
+          ev("done", { message: teacherMessage("m2", "Well done."), lesson: choice }),
+        ]);
+      }
+      return undefined;
+    });
+    renderApp("/classroom/L1");
+    const group = await screen.findByRole("group", { name: "Answer options" });
+    expect(screen.getByText("Derived attribute", { selector: "li" })).toBeInTheDocument(); // board
+    await userEvent.setup().click(within(group).getByRole("button", { name: "B) Foreign key" }));
+    await screen.findByText("Well done.");
+    expect(bodies).toEqual([{ intent: "message", text: "B" }]);
+    expect(screen.getByPlaceholderText("Tap an option, or type its letter…")).toBeInTheDocument();
+  });
+
+  it("true/false questions get True and False buttons", async () => {
+    const tf = { ...lessonState, question_type: "true_false", question_text: "True or false: ..." };
+    const bodies: unknown[] = [];
+    fakeBackend((url, init) => {
+      if (url.endsWith("/auth/me")) return me("approved");
+      if (url.endsWith("/sessions/L1"))
+        return jsonResponse(200, { ...session([teacherMessage("m1", "Go!")]), lesson: tf });
+      if (url.endsWith("/sessions/L1/messages")) {
+        bodies.push(JSON.parse(String(init?.body)));
+        return sseResponse([ev("done", { message: teacherMessage("m2", "Hmm."), lesson: tf })]);
+      }
+      return undefined;
+    });
+    renderApp("/classroom/L1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "False" }));
+    await screen.findByText("Hmm.");
+    expect(bodies).toEqual([{ intent: "message", text: "false" }]);
   });
 });

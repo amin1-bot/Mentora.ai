@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.curriculum.models import Question, Topic, TopicPrerequisite
+from app.modules.curriculum.models import Course, Question, Topic, TopicPrerequisite
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,7 @@ class LessonTopic:
     area_id: uuid.UUID  # the parent topic, or the topic itself when it has no parent
     area_name: str
     needs: tuple[uuid.UUID, ...]  # prerequisite topics (a recommendation, never a lock)
+    course_level: str | None = None  # school / university / professional, if in a course
 
 
 async def lesson_topics(db: AsyncSession) -> list[LessonTopic]:
@@ -35,6 +36,10 @@ async def lesson_topics(db: AsyncSession) -> list[LessonTopic]:
     ).all()
     parent_ids = {t.parent_topic_id for t, _ in rows if t.parent_topic_id}
     parents = {t.id: t for t in await db.scalars(select(Topic).where(Topic.id.in_(parent_ids)))}
+    course_ids = {t.course_id for t, _ in rows if t.course_id}
+    levels = {
+        c.id: c.level for c in await db.scalars(select(Course).where(Course.id.in_(course_ids)))
+    }
     needs: dict[uuid.UUID, list[uuid.UUID]] = {}
     for p in await db.scalars(select(TopicPrerequisite)):
         needs.setdefault(p.topic_id, []).append(p.prerequisite_topic_id)
@@ -52,6 +57,7 @@ async def lesson_topics(db: AsyncSession) -> list[LessonTopic]:
                 area_id=area.id if area else t.id,
                 area_name=area.name if area else t.name,
                 needs=tuple(needs.get(t.id, ())),
+                course_level=levels.get(t.course_id) if t.course_id else None,
             )
         )
     depth = _depths(needs)

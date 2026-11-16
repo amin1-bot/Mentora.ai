@@ -5,7 +5,7 @@ Shared by the live classroom (classroom/service.py) and the evaluation harness
 """
 
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -20,7 +20,7 @@ from app.ai.base import (
     TurnFinished,
     TurnRequest,
 )
-from app.modules.teacher.guard import LeakGuard, filter_board
+from app.modules.teacher.guard import LeakGuard, Protected, filter_board
 from app.modules.teacher.safety import FALLBACK_RESPONSES
 
 MAX_ATTEMPTS = 2  # first try + one regeneration after a blocked leak
@@ -87,7 +87,7 @@ class GenerationResult:
 async def generate_reply(
     provider: AIProvider,
     build_request: Callable[[bool], TurnRequest],
-    protected: list[float],
+    protected: Sequence[float | Protected],
     result: GenerationResult,
 ) -> AsyncIterator[StreamOut]:
     started = time.monotonic()

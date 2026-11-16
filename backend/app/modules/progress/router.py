@@ -11,4 +11,4 @@ router = APIRouter(prefix="/progress", tags=["progress"])
 @router.get("")
 async def my_progress(student: StudentUser, session: SessionDep) -> ProgressOut:
     """Your mastery for every skill, grouped by topic area, and what to practise next."""
-    return await service.progress_for(session, student.id)
+    return await service.progress_for(session, student)

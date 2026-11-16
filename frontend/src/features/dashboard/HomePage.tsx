@@ -102,7 +102,12 @@ function TopicList({ locked }: { locked: boolean }) {
                 </div>
                 <p className={styles.masteryLabel}>
                   {t("dashboard.topicMeta", {
-                    grades: skill.grade_band,
+                    level:
+                      skill.course_level === "university"
+                        ? t("dashboard.levelUniversity")
+                        : skill.course_level === "professional"
+                          ? t("dashboard.levelProfessional")
+                          : t("dashboard.grades", { grades: skill.grade_band }),
                     count: skill.question_count,
                   })}
                 </p>

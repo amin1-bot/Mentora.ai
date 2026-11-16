@@ -43,7 +43,16 @@ async def _create_test_database() -> None:
 
 
 # Seeded by migrations (the approved question bank) and only read by the app: kept.
-CURRICULUM_TABLES = {"subjects", "topics", "topic_prerequisites", "misconceptions", "questions"}
+CURRICULUM_TABLES = {
+    "disciplines",
+    "subjects",
+    "courses",
+    "topics",
+    "learning_objectives",
+    "topic_prerequisites",
+    "misconceptions",
+    "questions",
+}
 
 
 async def _empty_all_tables() -> None:

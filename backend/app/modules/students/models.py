@@ -22,7 +22,7 @@ class StudentProfile(CreatedAt, Base):
 
     __tablename__ = "student_profiles"
     __table_args__ = (
-        CheckConstraint("grade_level BETWEEN 1 AND 12", name="grade_level_range"),
+        CheckConstraint("grade_level BETWEEN 1 AND 13", name="grade_level_range"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -30,6 +30,7 @@ class StudentProfile(CreatedAt, Base):
     )
     display_name: Mapped[str] = mapped_column(String(80), nullable=False)
     date_of_birth: Mapped[date] = mapped_column(Date, nullable=False)
+    # School grade 1-12; 13 means university or adult learner.
     grade_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     language: Mapped[str] = mapped_column(String(10), nullable=False, server_default="en")
 

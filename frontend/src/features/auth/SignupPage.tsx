@@ -11,7 +11,8 @@ import styles from "./auth.module.css";
 import { AuthLayout } from "./AuthLayout";
 import { useSignup } from "./session";
 
-const GRADES = Array.from({ length: 12 }, (_, i) => i + 1);
+// School grades 1-12, then 13 for university and adult learners.
+const GRADES = Array.from({ length: 13 }, (_, i) => i + 1);
 const GUARDIAN_AGE = 18; // matches the backend rule; the backend has the final say
 
 export function ageFrom(dateOfBirth: string, today = new Date()): number | null {
@@ -111,7 +112,7 @@ export function SignupPage() {
             >
               {GRADES.map((g) => (
                 <option key={g} value={g}>
-                  {t("auth.gradeOption", { grade: g })}
+                  {g === 13 ? t("auth.gradeAdult") : t("auth.gradeOption", { grade: g })}
                 </option>
               ))}
             </SelectField>

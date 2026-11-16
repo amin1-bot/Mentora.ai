@@ -15,7 +15,7 @@ class StudentSignup(BaseModel):
     password: Password
     display_name: DisplayName
     date_of_birth: date
-    grade_level: int = Field(ge=1, le=12)
+    grade_level: int = Field(ge=1, le=13)  # school grade 1-12; 13 = university or adult
     # Required for students younger than the consent age (checked in the service).
     guardian_email: EmailStr | None = None
 

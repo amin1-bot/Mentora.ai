@@ -64,6 +64,20 @@
   margin: 0;
 }
 
+.options {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 500;
+}
+
+.optionLetter {
+  font-weight: 700;
+  color: var(--color-primary-hover);
+}
+
 .questionLabel {
   flex-shrink: 0;
   display: inline-grid;

@@ -36,15 +36,10 @@ def upgrade() -> None:
 
 
 def seed_curriculum() -> None:
-    """Insert the question bank. Safe to run again (rows are added or updated).
+    """Seeding moved out of migrations (they must not depend on today's models).
 
-    Uses the shared seed (app/modules/curriculum/seed.py), so a fresh database gets the
-    current question bank here; later seed migrations re-apply it to older databases.
+    Run `python -m app.modules.curriculum.seed` after `alembic upgrade head`.
     """
-    from app.modules.curriculum.seed import seed_statements
-
-    for stmt in seed_statements():
-        op.execute(stmt)
 
 
 def downgrade() -> None:

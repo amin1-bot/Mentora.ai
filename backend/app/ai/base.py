@@ -68,8 +68,8 @@ class AIProvider(Protocol):
 BOARD_TOOL_NAME = "write_on_board"
 BOARD_TOOL_DESCRIPTION = (
     "Write short steps, examples or equations on the classroom whiteboard. Call this at "
-    "most once per reply, after speaking. Use 'equation' for maths written in LaTeX, "
-    "'step' for one numbered step, 'text' for a short heading or note."
+    "most once per reply, after speaking. Use 'equation' only for maths or formulas "
+    "written in LaTeX, 'step' for one numbered step, 'text' for a short heading or note."
 )
 BOARD_TOOL_SCHEMA: dict[str, Any] = {
     "type": "object",

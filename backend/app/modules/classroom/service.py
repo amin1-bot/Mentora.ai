@@ -29,7 +29,12 @@ from app.core.database import SessionLocal
 from app.core.errors import Conflict, Forbidden, NotFound, TooManyRequests
 from app.modules.adaptive import mastery
 from app.modules.adaptive import service as adaptive
-from app.modules.adaptive.answers import AnswerCheck, check_answer, parse_number
+from app.modules.adaptive.checkers import (
+    Check,
+    answer_key,
+    checker_for,
+    question_for_teacher,
+)
 from app.modules.adaptive.engine import MAX_HINT, EventKind, LessonState, decide
 from app.modules.adaptive.models import QuestionAttempt
 from app.modules.auth.models import User
@@ -46,7 +51,8 @@ from app.modules.curriculum.models import Question
 from app.modules.students import repository as students_repo
 from app.modules.students import service as students
 from app.modules.teacher.generate import Delta, GenerationResult, Reset, generate_reply
-from app.modules.teacher.prompts import SYSTEM_RULES, QuestionInfo, TurnContext, build_messages
+from app.modules.teacher.guard import Protected
+from app.modules.teacher.prompts import QuestionInfo, TurnContext, build_messages, system_rules
 from app.modules.teacher.safety import FALLBACK_RESPONSES, SAFE_RESPONSE, is_distress
 
 BUTTON_TEXT = {"hint": "Give me a hint", "dont_get_it": "I don't get it"}
@@ -84,6 +90,8 @@ async def _lesson_out(db: AsyncSession, ls: LearningSession) -> LessonOut:
     return LessonOut(
         has_question=question is not None,
         question_text=question.text if question else None,
+        question_type=question.question_type if question else None,
+        question_options=_options(question),
         hint_level=ls.hint_level,
         max_hint_level=MAX_HINT,
         mastery=score,
@@ -175,7 +183,7 @@ async def prepare_turn(
         raise Conflict("Start the lesson first.", code="not_started")
     if await repo.student_messages_today(db, student.id) >= get_settings().daily_message_limit:
         raise TooManyRequests(
-            "That's a lot of maths for one day! Take a break and come back tomorrow.",
+            "That's a lot of learning for one day! Take a break and come back tomorrow.",
             code="daily_limit",
         )
     return TurnPlan(ls.id, student.id, body.intent, body.text)
@@ -185,8 +193,33 @@ def _event(name: str, data: dict[str, Any]) -> dict[str, Any]:
     return {"event": name, "data": data}
 
 
+def _options(q: Question | None) -> list[str] | None:
+    return list(q.answer_data["options"]) if q and q.question_type == "multiple_choice" else None
+
+
 def _question_info(q: Question | None) -> QuestionInfo | None:
-    return QuestionInfo(q.text, float(q.answer_data["value"])) if q else None
+    if q is None:
+        return None
+    return QuestionInfo(
+        question_for_teacher(q.question_type, q.text, q.answer_data),
+        checker_for(q.question_type).describe(q.answer_data),
+        numeric=q.question_type == "numeric",
+        kind=q.question_type,
+    )
+
+
+def _protected(q: Question, topic_name: str) -> list[Protected]:
+    """What the leak guard hides for this question. Words that are visible anyway (in the
+    question, its options' wording, or the topic name) cannot be hidden."""
+    visible = question_for_teacher(q.question_type, q.text, q.answer_data) + "\n" + topic_name
+    return checker_for(q.question_type).protected(q.answer_data, visible)
+
+
+def _board_question(q: Question) -> dict[str, Any]:
+    block: dict[str, Any] = {"type": "question", "text": q.text}
+    if q.question_type == "multiple_choice":
+        block["options"] = list(q.answer_data["options"])
+    return block
 
 
 async def stream_turn(plan: TurnPlan, provider: AIProvider | None) -> AsyncIterator[dict[str, Any]]:
@@ -259,12 +292,13 @@ async def _run_turn(
 
     # 3. Code checks the answer.
     event: EventKind = "start" if plan.intent == "start" else plan.intent  # type: ignore[assignment]
-    check: AnswerCheck | None = None
+    check: Check | None = None
     misconception_text: str | None = None
     if plan.intent == "message" and current is not None and student_text:
-        value = parse_number(student_text)
-        if value is not None:
-            event, check = "answer", check_answer(current.answer_data, value)
+        checker = checker_for(current.question_type)
+        answer = checker.interpret(student_text, current.answer_data)
+        if answer is not None:
+            event, check = "answer", checker.check(current.answer_data, answer)
 
     history = [
         {"role": m.role, "content": m.content}
@@ -321,7 +355,7 @@ async def _run_turn(
     next_difficulty = ls.difficulty
     if decision.ask_new_question:
         next_difficulty = await adaptive.next_difficulty(db, plan.student_id, topic.id)
-        avoid = {float(current.answer_data["value"])} if current else set()
+        avoid = {answer_key(current.question_type, current.answer_data)} if current else set()
         next_q = await repo.pick_question(
             db,
             topic_id=topic.id,
@@ -331,11 +365,12 @@ async def _run_turn(
             avoid_answers=avoid,
         )
 
-    protected: list[float] = []
+    protected: list[Protected] = []
     if current is not None and not decision.reveal_current_answer:
-        protected.append(float(current.answer_data["value"]))
+        protected += _protected(current, topic.name)
     if next_q is not None:
-        protected.append(float(next_q.answer_data["value"]))
+        protected += _protected(next_q, topic.name)
+    subject_profile = await repo.subject_profile(db, topic.subject_id)
 
     ctx = TurnContext(
         decision=decision,
@@ -343,13 +378,14 @@ async def _run_turn(
         topic_name=topic.name,
         current=_question_info(current),
         next_question=_question_info(next_q),
-        student_answer=check.value if check else None,
+        student_answer=check.display if check else None,
         misconception=misconception_text,
+        profile=subject_profile,
     )
 
     def build_request(stricter: bool) -> TurnRequest:
         return TurnRequest(
-            system=SYSTEM_RULES,
+            system=system_rules(subject_profile),
             messages=build_messages(history, replace(ctx, stricter=stricter)),
             max_tokens=settings.ai_max_output_tokens,
         )
@@ -375,7 +411,7 @@ async def _run_turn(
 
     board = list(result.board)
     if next_q is not None:
-        board.append({"type": "question", "text": next_q.text})
+        board.append(_board_question(next_q))
 
     # 7. Save everything.
     s = decision.state

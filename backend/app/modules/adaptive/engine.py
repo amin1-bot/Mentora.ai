@@ -13,9 +13,7 @@ student's saved mastery (adaptive/mastery.py), so it carries over between lesson
 """
 
 from dataclasses import dataclass, replace
-from typing import Literal
-
-from app.modules.adaptive.answers import AnswerCheck
+from typing import Literal, Protocol
 
 MAX_HINT = 3
 HINT_AFTER_WRONG = 2  # wrong tries on the same question before the next hint rung
@@ -32,6 +30,16 @@ Action = Literal[
 ]
 
 EventKind = Literal["start", "answer", "hint", "dont_get_it", "message"]
+
+
+class AnswerResult(Protocol):
+    """What the engine needs from a checked answer (adaptive/checkers.py provides it)."""
+
+    @property
+    def is_correct(self) -> bool: ...
+
+    @property
+    def misconception_code(self) -> str | None: ...
 
 
 @dataclass(frozen=True)
@@ -66,7 +74,7 @@ def _next_question_state(streak: int) -> LessonState:
     return LessonState(has_question=True, correct_streak=streak)
 
 
-def decide(state: LessonState, event: EventKind, check: AnswerCheck | None = None) -> Decision:
+def decide(state: LessonState, event: EventKind, check: AnswerResult | None = None) -> Decision:
     if event == "start" or (event == "answer" and not state.has_question):
         if not state.has_question:
             return Decision(

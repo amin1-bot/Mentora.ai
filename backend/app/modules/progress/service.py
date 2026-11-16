@@ -11,12 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.adaptive import mastery
 from app.modules.adaptive import service as adaptive
+from app.modules.auth.models import User
 from app.modules.curriculum import service as curriculum
+from app.modules.students import service as students
 
 
 class SkillProgress(BaseModel):
     id: uuid.UUID
     name: str
+    course_level: str | None  # school / university / professional
     grade_band: str
     question_count: int
     mastery: float  # 0..1
@@ -41,8 +44,20 @@ class ProgressOut(BaseModel):
     recommended_skill_id: uuid.UUID | None
 
 
-async def progress_for(db: AsyncSession, student_id: uuid.UUID) -> ProgressOut:
+def _matches_level(course_level: str | None, grade_level: int) -> bool:
+    """School courses suit grades 1-12; university and professional courses suit grade 13
+    (university or adult). Topics outside any course suit everyone."""
+    if course_level is None:
+        return True
+    return (course_level == "school") == (grade_level <= 12)
+
+
+async def progress_for(db: AsyncSession, student: User) -> ProgressOut:
+    student_id = student.id
+    grade = (await students.get_profile(db, student, student.id)).grade_level
     topics = await curriculum.lesson_topics(db)
+    # Courses at the student's level come first; everything stays available.
+    topics.sort(key=lambda t: not _matches_level(t.course_level, grade))
     saved = await adaptive.masteries_for(db, student_id)
     names = {t.id: t.name for t in topics}
 
@@ -60,6 +75,7 @@ async def progress_for(db: AsyncSession, student_id: uuid.UUID) -> ProgressOut:
                 SkillProgress(
                     id=t.id,
                     name=t.name,
+                    course_level=t.course_level,
                     grade_band=t.grade_band,
                     question_count=t.question_count,
                     mastery=score(t.id),
@@ -86,20 +102,29 @@ async def progress_for(db: AsyncSession, student_id: uuid.UUID) -> ProgressOut:
     for area in areas.values():
         area.mastery = round(sum(s.mastery for s in area.skills) / len(area.skills), 4)
 
-    return ProgressOut(areas=list(areas.values()), recommended_skill_id=_recommend(skills))
+    return ProgressOut(
+        areas=list(areas.values()), recommended_skill_id=_recommend(skills, grade)
+    )
 
 
-def _recommend(skills: list[tuple[uuid.UUID, SkillProgress]]) -> uuid.UUID | None:
+def _recommend(skills: list[tuple[uuid.UUID, SkillProgress]], grade: int) -> uuid.UUID | None:
     """The first skill, in learning order, that is not mastered and is ready to learn.
 
-    "Ready" means every prerequisite is at least at "practising". If nothing is ready
-    (should not happen with sensible data), the first unmastered skill is suggested.
+    "Ready" means every prerequisite is at least at "practising". Preference order:
+    a skill already started; a ready skill in an area the student has started; a ready
+    skill at the student's level; any ready skill; any unmastered skill.
     """
-    open_skills = [s for _, s in skills if s.level != "mastered"]
-    ready = [s for s in open_skills if not s.needs_first]
-    # Keep going with a skill already started before opening a new one.
-    started = [s for s in ready if s.level != "not_started"]
-    for group in (started, ready, open_skills):
+    open_skills = [(a, s) for a, s in skills if s.level != "mastered"]
+    ready = [(a, s) for a, s in open_skills if not s.needs_first]
+    started_areas = {a for a, s in skills if s.level != "not_started"}
+    groups = [
+        [s for _, s in ready if s.level != "not_started"],
+        [s for a, s in ready if a in started_areas],
+        [s for _, s in ready if _matches_level(s.course_level, grade)],
+        [s for _, s in ready],
+        [s for _, s in open_skills],
+    ]
+    for group in groups:
         if group:
             return group[0].id
     return None

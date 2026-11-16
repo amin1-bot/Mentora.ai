@@ -10,7 +10,8 @@ import type { Profile } from "../../types/api";
 import { useSession } from "../auth/session";
 import { useProfile, useUpdateProfile } from "../dashboard/students";
 
-const GRADES = Array.from({ length: 12 }, (_, i) => i + 1);
+// School grades 1-12, then 13 for university and adult learners.
+const GRADES = Array.from({ length: 13 }, (_, i) => i + 1);
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -65,7 +66,7 @@ function ProfileForm({ profile }: { profile: Profile }) {
         <SelectField label={t("auth.gradeLevel")} value={grade} onChange={(e) => setGrade(e.target.value)}>
           {GRADES.map((g) => (
             <option key={g} value={g}>
-              {t("auth.gradeOption", { grade: g })}
+              {g === 13 ? t("auth.gradeAdult") : t("auth.gradeOption", { grade: g })}
             </option>
           ))}
         </SelectField>

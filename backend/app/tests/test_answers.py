@@ -5,6 +5,7 @@ import re
 import pytest
 
 from app.modules.adaptive.answers import check_answer, known_wrong_answers, parse_number
+from app.modules.adaptive.checkers import checker_for
 from app.modules.curriculum.seed_data import MISCONCEPTIONS, QUESTIONS, compute_answer
 
 Q_25_OF_80 = {"kind": "percent_of", "percent": 25, "of": 80, "value": 20}
@@ -54,8 +55,13 @@ def test_correct_and_unknown_wrong_answers() -> None:
     assert not unknown.is_correct and unknown.misconception_code is None
 
 
-@pytest.mark.parametrize("q", QUESTIONS, ids=lambda q: q["text"])
-def test_question_bank_rules(q: dict) -> None:
+NUMERIC = [q for q in QUESTIONS if q["question_type"] == "numeric"]
+OTHER = [q for q in QUESTIONS if q["question_type"] != "numeric"]
+CODES = {m["code"] for m in MISCONCEPTIONS}
+
+
+@pytest.mark.parametrize("q", NUMERIC, ids=lambda q: q["text"])
+def test_numeric_question_bank_rules(q: dict) -> None:
     data = q["answer_data"]
     assert data["value"] == pytest.approx(compute_answer(data))
     # The leak guard needs the answer to be absent from the question text.
@@ -67,7 +73,38 @@ def test_question_bank_rules(q: dict) -> None:
     for wrong in wrongs.values():
         assert wrong != pytest.approx(data["value"])
     # Every code the checker can return exists in the seeded misconception list.
-    assert set(wrongs) <= {m["code"] for m in MISCONCEPTIONS}
+    assert set(wrongs) <= CODES
+
+
+@pytest.mark.parametrize("q", OTHER, ids=lambda q: q["text"])
+def test_other_question_bank_rules(q: dict) -> None:
+    data, kind = q["answer_data"], q["question_type"]
+    assert data["kind"] == kind
+    checker = checker_for(kind)
+    correct = checker.describe(data)
+    if kind == "multiple_choice":
+        options = data["options"]
+        assert 3 <= len(options) <= 4 and len({o.lower() for o in options}) == len(options)
+        assert 0 <= data["correct_index"] < len(options)
+        assert set(data["misconceptions"]) <= {str(i) for i in range(len(options))}
+        assert str(data["correct_index"]) not in data["misconceptions"]
+        assert options[data["correct_index"]].lower() not in q["text"].lower()
+        codes = set(data["misconceptions"].values())
+    elif kind == "true_false":
+        assert isinstance(data["value"], bool)
+        codes = {data["misconception_if_wrong"]} - {None}
+    else:  # fill_blank
+        assert "____" in q["text"]
+        for accepted in data["answers"]:
+            assert accepted.lower() not in q["text"].lower()
+        assert not set(data["wrong_answers"]) & set(data["answers"])
+        codes = set(data["wrong_answers"].values())
+    assert codes <= CODES
+    # The correct answer, typed as a student would, is recognised and marked right.
+    typed = "ABCD"[data["correct_index"]] if kind == "multiple_choice" else correct
+    answer = checker.interpret(typed, data)
+    assert answer is not None and checker.check(data, answer).is_correct
+    assert q["explanation"]
 
 
 @pytest.mark.parametrize(

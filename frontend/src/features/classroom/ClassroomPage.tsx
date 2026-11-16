@@ -12,6 +12,14 @@ import styles from "./classroom.module.css";
 import { useEndLesson, useLesson } from "./useLesson";
 import { Whiteboard } from "./whiteboard/Whiteboard";
 import { LevelBadge, MasteryBar } from "../../components/Mastery";
+import { LETTERS } from "./whiteboard/Whiteboard";
+
+const PLACEHOLDERS = {
+  numeric: "classroom.inputPlaceholder",
+  multiple_choice: "classroom.placeholderChoice",
+  true_false: "classroom.placeholderTrueFalse",
+  fill_blank: "classroom.placeholderBlank",
+} as const;
 
 type MobileTab = "board" | "chat";
 
@@ -214,6 +222,34 @@ function Classroom({ sessionId }: { sessionId: string }) {
             {t("classroom.dontGetIt")}
           </Button>
         </div>
+        {hasQuestion && lesson?.question_type === "multiple_choice" && lesson.question_options && (
+          <div className={styles.choices} role="group" aria-label={t("classroom.answerOptions")}>
+            {lesson.question_options.map((option, i) => (
+              <Button
+                key={option}
+                variant="secondary"
+                disabled={!canAct}
+                onClick={() => void send("message", LETTERS[i], `${LETTERS[i]}) ${option}`)}
+              >
+                <span className={styles.choiceLetter}>{LETTERS[i]})</span> {option}
+              </Button>
+            ))}
+          </div>
+        )}
+        {hasQuestion && lesson?.question_type === "true_false" && (
+          <div className={styles.choices} role="group" aria-label={t("classroom.answerOptions")}>
+            {(["true", "false"] as const).map((v) => (
+              <Button
+                key={v}
+                variant="secondary"
+                disabled={!canAct}
+                onClick={() => void send("message", v, t(`classroom.${v}`))}
+              >
+                {t(`classroom.${v}`)}
+              </Button>
+            ))}
+          </div>
+        )}
         <div className={styles.inputRow}>
           <label htmlFor="answer" className="visually-hidden">
             {t("classroom.inputLabel")}
@@ -223,7 +259,7 @@ function Classroom({ sessionId }: { sessionId: string }) {
             className={styles.input}
             rows={1}
             maxLength={1000}
-            placeholder={t("classroom.inputPlaceholder")}
+            placeholder={t(PLACEHOLDERS[(hasQuestion && lesson?.question_type) || "numeric"])}
             value={draft}
             disabled={ended}
             onChange={(e) => setDraft(e.target.value)}

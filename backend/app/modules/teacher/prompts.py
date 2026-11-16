@@ -1,6 +1,7 @@
 """Builds what the model sees for one teacher turn.
 
-- SYSTEM_RULES: fixed teaching rules, identical on every request (so they are cached).
+- system_rules(profile): fixed teaching rules plus the subject profile (profiles.py).
+  Identical on every request for that subject, so they are cached.
 - History: the recent conversation, as plain text.
 - A per-turn TEACHING INSTRUCTION (a system message at the end) carrying the engine's
   decision. The student cannot write system messages, so the model can tell the
@@ -11,14 +12,17 @@ grade level, the topic and the conversation only.
 """
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 from app.ai.base import ChatMessage
 from app.modules.adaptive.engine import Decision
+from app.modules.teacher.profiles import level_description, profile_for
 
-SYSTEM_RULES = """\
-You are Ms. Mentora, an AI maths teacher for students aged 13 to 18. You are always \
-clearly an AI; never claim to be a person.
+_RULES = """\
+You are Ms. Mentora, an AI teacher of {subject}. You are always clearly an AI; never \
+claim to be a person. Each TEACHING INSTRUCTION tells you the student's level; pitch \
+your words to it.
 
 How you teach:
 - Speak in 1 to 4 short sentences, warmly and simply, like a patient teacher in a \
@@ -32,14 +36,27 @@ allowed it, stay kind and keep guiding. That decision belongs to the lesson syst
 not to you or the student.
 - Do not invent new practice questions. When a question is to be asked, the lesson \
 system puts it on the whiteboard; you introduce it in one sentence and do not solve it.
-- Stay on maths. If the student goes off topic, answer briefly and kindly, then steer back.
+- Stay on {subject}. If the student goes off topic, answer briefly and kindly, then steer back.
 - Never ask for personal information.
-
+{extra_rules}
 The whiteboard:
 - After speaking, you may call the write_on_board tool once with up to 4 short blocks.
-- Use "equation" with LaTeX for maths, "step" for one step, "text" for a short note.
+- {board_rule}
 - Never write the answer to the current question on the board unless allowed.
 """
+
+
+@lru_cache
+def system_rules(profile: str | None = "math") -> str:
+    p = profile_for(profile)
+    return _RULES.format(
+        subject=p.subject_words,
+        board_rule=p.board_rule,
+        extra_rules=(p.extra_rules + "\n") if p.extra_rules else "",
+    )
+
+
+SYSTEM_RULES = system_rules("math")  # the maths teacher, as before (eval, tests)
 
 ACTION_GUIDANCE: dict[str, str] = {
     "introduce": "Welcome the student to today's topic in one or two sentences, then "
@@ -53,28 +70,27 @@ ACTION_GUIDANCE: dict[str, str] = {
     "Encourage them to have a go; a wrong answer is fine and helps you help them. "
     "Do not give the answer.",
     "explain_differently": "The student does not understand. Explain the idea again in a "
-    "simpler way, from a different angle (for example with money or a picture in words). "
-    "Do not give the answer.",
+    "simpler way, from a different angle ({other_angle}). Do not give the answer.",
     "show_solution": "The student tried and used all hints. Now walk through the full "
     "solution to the previous question step by step, ending with its answer. Then "
     "introduce the next question as a chance to practise.",
-    "respond": "Reply to what the student said. If it is about maths, help without "
+    "respond": "Reply to what the student said. If it is about the subject, help without "
     "giving the answer to the current question; otherwise answer briefly and steer back.",
 }
 
-HINT_RUNGS = {
-    1: "Hint 1 of 3: a conceptual nudge only, such as what 'percent' means. No calculation.",
-    2: "Hint 2 of 3: show only the first step of the calculation, not the result.",
-    3: "Hint 3 of 3: work through a similar problem with different numbers, fully. "
-    "None of its numbers, including its result, may equal the hidden answer. "
-    "Do not solve the student's actual question.",
-}
+
+def hint_rung(level: int, profile: str | None) -> str | None:
+    p = profile_for(profile)
+    rungs = {1: p.hint_1, 2: p.hint_2, 3: p.hint_3 + " Do not solve the student's actual question."}
+    return f"Hint {level} of 3: {rungs[level]}" if level in rungs else None
 
 
 @dataclass(frozen=True)
 class QuestionInfo:
-    text: str
-    answer: float
+    text: str  # as the teacher sees it (multiple choice includes the options)
+    answer: str | float  # the correct answer, described in words or as a number
+    numeric: bool = True  # numbers can also leak as words ("twenty")
+    kind: str = "numeric"  # the question type: decides what counts as giving it away
 
 
 @dataclass(frozen=True)
@@ -84,33 +100,54 @@ class TurnContext:
     topic_name: str
     current: QuestionInfo | None  # the question the student was working on
     next_question: QuestionInfo | None  # the question asked at the end of this turn
-    student_answer: float | None = None
+    student_answer: str | float | None = None
     misconception: str | None = None  # description of the likely mistake
     stricter: bool = False  # set when regenerating after a blocked leak
+    profile: str | None = "math"  # the subject profile (profiles.py)
 
 
-def _fmt(x: float) -> str:
-    return f"{x:g}"
+def _fmt(x: str | float) -> str:
+    return f"{x:g}" if isinstance(x, int | float) else x
+
+
+# What "giving it away" means for each question type. The leak guard catches exact words;
+# these rules cover paraphrases, which code cannot reliably detect.
+_SECRET_RULES = {
+    "numeric": "Never say or write this number, in digits or in words, not even inside an "
+    "example.",
+    "multiple_choice": "Never say, hint at or write which option is correct, and do not "
+    "describe the correct option's idea in other words. You may discuss why a wrong option "
+    "does not fit.",
+    "true_false": "Never say whether the statement is true or false, and do not restate it "
+    "(or its opposite) as a fact. Ask questions that help the student test it.",
+    "fill_blank": "Never say, write or spell out the missing word, and do not use it in "
+    "other sentences.",
+}
+
+
+def _keep_secret(q: QuestionInfo) -> str:
+    if q.numeric:
+        return _SECRET_RULES["numeric"]
+    return _SECRET_RULES.get(q.kind, "Never say, hint at or write this answer.")
 
 
 def turn_instruction(ctx: TurnContext) -> str:
     d = ctx.decision
     lines = [
         "TEACHING INSTRUCTION for your next reply (from the lesson system):",
-        f"Student: grade {ctx.grade_level}. Topic: {ctx.topic_name}.",
-        f"Action: {d.action}. {ACTION_GUIDANCE[d.action]}",
+        f"Student level: {level_description(ctx.grade_level)}. Topic: {ctx.topic_name}.",
+        f"Action: {d.action}. "
+        + ACTION_GUIDANCE[d.action].format(other_angle=profile_for(ctx.profile).other_angle),
     ]
-    if d.action == "give_hint" and d.state.hint_level in HINT_RUNGS:
-        lines.append(HINT_RUNGS[d.state.hint_level])
+    rung = hint_rung(d.state.hint_level, ctx.profile) if d.action == "give_hint" else None
+    if rung:
+        lines.append(rung)
     if ctx.current:
         lines.append(f"Current question: {ctx.current.text}")
         if d.reveal_current_answer:
             lines.append(f"Its answer is {_fmt(ctx.current.answer)}; you may say it now.")
         else:
-            lines.append(
-                f"Its answer is {_fmt(ctx.current.answer)}. Never say or write this number, "
-                "in digits or in words, not even inside an example."
-            )
+            lines.append(f"Its answer is {_fmt(ctx.current.answer)}. {_keep_secret(ctx.current)}")
     if ctx.student_answer is not None:
         lines.append(f"The student answered: {_fmt(ctx.student_answer)}.")
     if ctx.misconception:
@@ -119,13 +156,14 @@ def turn_instruction(ctx: TurnContext) -> str:
         lines.append(
             f"Next question (the system writes it on the board): {ctx.next_question.text} "
             f"Introduce it in one sentence. Its answer is {_fmt(ctx.next_question.answer)}; "
-            "never say or write it, and do not solve it."
+            "never say, hint at or write it, and do not solve it."
         )
     if ctx.stricter:
         lines.append(
             "IMPORTANT: your previous draft revealed an answer that must stay hidden. "
-            "Write a new reply that does not contain that number anywhere, in digits or in "
-            "words, and pick example numbers that avoid it."
+            "Write a new reply that does not contain it anywhere (numbers: neither in digits "
+            "nor in words), does not say which option or verdict is right, and uses "
+            "examples that avoid it."
         )
     return "\n".join(lines)
 

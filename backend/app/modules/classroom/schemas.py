@@ -19,6 +19,9 @@ class LessonOut(BaseModel):
 
     has_question: bool
     question_text: str | None
+    # How to reply: numeric, multiple_choice, true_false or fill_blank (None: no question).
+    question_type: str | None = None
+    question_options: list[str] | None = None  # multiple choice only; never says which is right
     hint_level: int
     max_hint_level: int = 3
     mastery: float = 0.0  # saved mastery for this topic, 0..1

@@ -7,6 +7,9 @@ from app.modules.adaptive.models import MasteryEvent, QuestionAttempt, TopicMast
 from app.modules.auth.models import RefreshToken, User
 from app.modules.classroom.models import LearningSession, Message
 from app.modules.curriculum.models import (
+    Course,
+    Discipline,
+    LearningObjective,
     Misconception,
     Question,
     Subject,
@@ -19,8 +22,11 @@ __all__ = [
     "AIRequest",
     "AuditLog",
     "Base",
+    "Course",
+    "Discipline",
     "GuardianInvite",
     "GuardianLink",
+    "LearningObjective",
     "LearningSession",
     "MasteryEvent",
     "Message",

@@ -20,7 +20,7 @@ class ProfileUpdate(BaseModel):
     """Date of birth cannot be changed here, because age rules depend on it."""
 
     display_name: DisplayName | None = None
-    grade_level: int | None = Field(default=None, ge=1, le=12)
+    grade_level: int | None = Field(default=None, ge=1, le=13)  # 13 = university or adult
     language: Literal["en"] | None = None  # more languages in Phase 13
 
 

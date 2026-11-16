@@ -1,4 +1,7 @@
-"""The approved question bank: the Percentages topic area (grades 6-8).
+"""The approved catalogue and question bank.
+
+Mathematics: the Percentages topic area (grades 6-8), below. Other subjects live in their
+own content files (content_mis.py) and are merged at the end of this file.
 
 "Percentages" is a topic area made of four skills. Each skill is a topic of its own, with
 its own lessons, questions and mastery score:
@@ -19,25 +22,41 @@ Ids are fixed (uuid5), so the seed migration is repeatable and tests can refer t
 import uuid
 from typing import Any
 
-_NS = uuid.UUID("6f1c1c2e-6a59-4f8e-9f57-1e0b8f1a6c00")
-
-
-def seed_id(name: str) -> uuid.UUID:
-    return uuid.uuid5(_NS, name)
+from app.modules.curriculum import content_mis as mis
+from app.modules.curriculum.seed_ids import seed_id
 
 
 def _fmt(x: float) -> str:
     return f"{x:g}"
 
 
+MATH_DISCIPLINE_ID = seed_id("discipline:math")
 MATH_ID = seed_id("subject:math")
+MATH_COURSE_ID = seed_id("course:middle_school_math")
 PERCENTAGES_ID = seed_id("topic:percentages")  # the topic area (no questions of its own)
 CONVERT_ID = seed_id("topic:percent_convert")
 PERCENT_OF_ID = seed_id("topic:percent_of")
 CHANGE_ID = seed_id("topic:percent_change")
 EXPRESS_ID = seed_id("topic:percent_express")
 
-SUBJECTS = [{"id": MATH_ID, "name": "Mathematics", "slug": "math"}]
+DISCIPLINES = [{"id": MATH_DISCIPLINE_ID, "name": "Mathematics", "slug": "math"}]
+SUBJECTS = [
+    {
+        "id": MATH_ID,
+        "discipline_id": MATH_DISCIPLINE_ID,
+        "name": "Mathematics",
+        "slug": "math",
+        "profile": "math",
+    }
+]
+COURSES = [
+    {
+        "id": MATH_COURSE_ID,
+        "subject_id": MATH_ID,
+        "name": "Middle school mathematics",
+        "level": "school",
+    }
+]
 
 # Listed in teaching order: the progress page and recommendations follow this order.
 TOPICS: list[dict[str, Any]] = [
@@ -51,7 +70,7 @@ TOPICS: list[dict[str, Any]] = [
      "name": "One number as a percentage of another"},
 ]
 for _t in TOPICS:
-    _t.update(subject_id=MATH_ID, grade_band="6-8")
+    _t.update(subject_id=MATH_ID, course_id=MATH_COURSE_ID, grade_band="6-8")
 
 TOPIC_ORDER = [t["id"] for t in TOPICS]
 
@@ -111,6 +130,9 @@ def _question(topic_id: uuid.UUID, difficulty: int, key: str, text: str, data: d
     return {
         "id": seed_id(f"question:{key}"),
         "topic_id": topic_id,
+        "learning_objective_id": None,
+        "question_type": "numeric",
+        "explanation": None,
         "difficulty": difficulty,
         "text": text,
         "answer_data": data,
@@ -220,4 +242,14 @@ def _build_questions() -> list[dict]:
     return out
 
 
-QUESTIONS = _build_questions()
+# --- Everything together: what the seed command writes ---
+MATH_QUESTIONS = _build_questions()
+DISCIPLINES = DISCIPLINES + mis.DISCIPLINES
+SUBJECTS = SUBJECTS + mis.SUBJECTS
+COURSES = COURSES + mis.COURSES
+TOPICS = TOPICS + mis.TOPICS
+TOPIC_ORDER = [t["id"] for t in TOPICS]
+PREREQUISITES = PREREQUISITES + mis.PREREQUISITES
+MISCONCEPTIONS = MISCONCEPTIONS + mis.MISCONCEPTIONS
+LEARNING_OBJECTIVES: list[dict[str, Any]] = mis.LEARNING_OBJECTIVES
+QUESTIONS = MATH_QUESTIONS + mis.QUESTIONS

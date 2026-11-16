@@ -4,10 +4,10 @@ Revision ID: 7a1d4c9e2b10
 Revises: 3e9eb820d3e7
 Create Date: 2026-11-14 15:00:00
 
-No table changes: mastery tables exist since the first migration. This migration
-- adds three new skills and their questions and misconceptions,
-- moves the first 15 questions (same ids) under "Percent of an amount",
-- ends lessons still open on the "Percentages" area, which has no questions of its own now.
+No table changes: mastery tables exist since the first migration. This migration ends
+lessons still open on the "Percentages" area, which has no questions of its own now.
+The new skills and the move of the first 15 questions come from the seed command
+(`python -m app.modules.curriculum.seed`), run after migrations.
 """
 from typing import Sequence, Union
 
@@ -23,10 +23,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     from app.modules.curriculum import seed_data as d
-    from app.modules.curriculum.seed import seed_statements
 
-    for stmt in seed_statements():
-        op.execute(stmt)
     op.execute(
         sa.text(
             "UPDATE learning_sessions SET status = 'ended', ended_at = now() "

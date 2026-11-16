@@ -71,6 +71,8 @@ export interface Topic {
 export interface LessonState {
   has_question: boolean;
   question_text: string | null;
+  question_type: "numeric" | "multiple_choice" | "true_false" | "fill_blank" | null;
+  question_options: string[] | null; // multiple choice only; never says which is right
   hint_level: number;
   max_hint_level: number;
   mastery: number; // saved mastery for this topic, 0..1
@@ -82,6 +84,7 @@ export type MasteryLevel = "not_started" | "learning" | "practising" | "mastered
 export interface SkillProgress {
   id: string;
   name: string;
+  course_level: "school" | "university" | "professional" | null;
   grade_band: string;
   question_count: number;
   mastery: number;

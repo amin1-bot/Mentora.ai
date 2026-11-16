@@ -100,8 +100,8 @@ async def send_guardian_invite(
             subject="Please approve your child's Mentora account",
             body=(
                 f"{student_display_name} has created an account on Mentora, an AI teacher "
-                "for math. Because they are under 18, they need your approval before they can "
-                f"start lessons. Review what we store and approve here: {link}\n\n"
+                "that helps students learn. Because they are under 18, they need your approval "
+                f"before they can start lessons. Review what we store and approve here: {link}\n\n"
                 "If you did not expect this email, you can ignore it."
             ),
             link=link,

@@ -67,16 +67,19 @@ def set_question(session_id: str, question_id=Q_25_OF_80) -> None:
 def test_topics_list_the_seeded_question_bank(client: TestClient) -> None:
     adult_student(client)
     topics = client.get("/api/v1/topics").json()
+    percentages = [t for t in topics if t["area_id"] == str(PERCENTAGES_ID)]
     # Four skills of the Percentages area, in learning order (prerequisites first).
-    assert [t["name"] for t in topics] == [
+    assert [t["name"] for t in percentages] == [
         "Percents, decimals and fractions",
         "One number as a percentage of another",
         "Percent of an amount",
         "Percentage increase and decrease",
     ]
-    assert {t["area_name"] for t in topics} == {"Percentages"}
-    assert {t["area_id"] for t in topics} == {str(PERCENTAGES_ID)}
-    assert [t["question_count"] for t in topics] == [20, 15, 15, 15]
+    assert {t["area_name"] for t in percentages} == {"Percentages"}
+    assert [t["question_count"] for t in percentages] == [20, 15, 15, 15]
+    # The first non-maths course sits next to it.
+    mis = [t["name"] for t in topics if t["area_name"] == "Introduction to MIS"]
+    assert mis == ["Information systems basics", "Databases and data management"]
 
 
 def test_the_topic_area_itself_cannot_be_taught(client: TestClient) -> None:

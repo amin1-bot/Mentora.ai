@@ -11,7 +11,9 @@ BLUEPRINT_TABLES = {
 }
 # Added in Phase 3 for login tokens, guardian invitations (see README).
 PHASE_3_TABLES = {"refresh_tokens", "guardian_invites"}
-ALL_TABLES = BLUEPRINT_TABLES | PHASE_3_TABLES
+# Multi-subject plan, phase 1: the catalogue above subjects and below topics.
+CATALOGUE_TABLES = {"disciplines", "courses", "learning_objectives"}
+ALL_TABLES = BLUEPRINT_TABLES | PHASE_3_TABLES | CATALOGUE_TABLES
 
 
 def test_models_define_all_tables() -> None:

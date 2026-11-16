@@ -89,7 +89,7 @@ def test_refusal_uses_a_fixed_line() -> None:
     provider = ScriptedProvider([Reply(["I can't"], stop_reason="refusal")])
     events, result = _run(provider, [20])
     assert result.fallback == "refusal"
-    assert "maths" in _shown(events)
+    assert "back to our lesson" in _shown(events)
 
 
 def test_provider_outage_is_reported() -> None:

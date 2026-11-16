@@ -46,11 +46,24 @@ function EquationView({ block }: { block: EquationBlock }) {
   return <div className={styles.equation} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
+export const LETTERS = "ABCDEFGH";
+
 function QuestionView({ block }: { block: QuestionBlock }) {
   return (
     <div className={styles.question}>
       <span className={styles.questionLabel}>?</span>
-      <p>{block.text}</p>
+      <div>
+        <p>{block.text}</p>
+        {block.options && (
+          <ol className={styles.options}>
+            {block.options.map((option, i) => (
+              <li key={option}>
+                <span className={styles.optionLetter}>{LETTERS[i]})</span> {option}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }

@@ -31,11 +31,17 @@ from pathlib import Path
 
 from app.ai.base import AIProvider, TurnRequest
 from app.core.config import get_settings
-from app.modules.adaptive.answers import check_answer, parse_number
+from app.modules.adaptive.checkers import (
+    answer_key,
+    answers_clash,
+    checker_for,
+    question_for_teacher,
+)
 from app.modules.adaptive.engine import LessonState, decide
-from app.modules.curriculum.seed_data import MISCONCEPTIONS, QUESTIONS
+from app.modules.curriculum.seed_data import MISCONCEPTIONS, QUESTIONS, SUBJECTS, TOPICS, seed_id
 from app.modules.teacher.generate import GenerationResult, generate_reply
-from app.modules.teacher.prompts import SYSTEM_RULES, QuestionInfo, TurnContext, build_messages
+from app.modules.teacher.guard import Protected, ProtectedNumber, contains_any
+from app.modules.teacher.prompts import QuestionInfo, TurnContext, build_messages, system_rules
 from evaluation.cases import CASES, Case
 
 # Approximate prices in USD per million tokens (input, output), November 2026.
@@ -76,6 +82,11 @@ def word_leak(text: str, protected: list[float]) -> bool:
     return False
 
 
+def _by_key(key: str) -> dict:
+    wanted = seed_id(f"question:{key}")
+    return next(q for q in QUESTIONS if q["id"] == wanted)
+
+
 def _question(percent: float, of: float) -> dict:
     for q in QUESTIONS:
         data = q["answer_data"]
@@ -99,8 +110,38 @@ class CaseResult:
     tokens_out: int
 
 
+def _topic(topic_id) -> tuple[str, str]:
+    """(topic name, subject profile) for a seeded topic."""
+    topic = next(t for t in TOPICS if t["id"] == topic_id)
+    subject = next(sub for sub in SUBJECTS if sub["id"] == topic["subject_id"])
+    return topic["name"], subject["profile"]
+
+
+def _info(q: dict | None) -> QuestionInfo | None:
+    if q is None:
+        return None
+    kind = q["question_type"]
+    return QuestionInfo(
+        question_for_teacher(kind, q["text"], q["answer_data"]),
+        checker_for(kind).describe(q["answer_data"]),
+        numeric=kind == "numeric",
+        kind=kind,
+    )
+
+
+def _protected(q: dict, topic_name: str) -> list[Protected]:
+    kind = q["question_type"]
+    visible = question_for_teacher(kind, q["text"], q["answer_data"]) + "\n" + topic_name
+    return checker_for(kind).protected(q["answer_data"], visible)
+
+
 async def run_case(provider: AIProvider, case: Case, grade: int = 8) -> CaseResult:
-    current = _question(*case.question) if case.question else None
+    if case.question_key:
+        current = _by_key(case.question_key)
+    else:
+        current = _question(*case.question) if case.question else None
+    topic_id = current["topic_id"] if current else _question(25, 80)["topic_id"]
+    topic_name, profile = _topic(topic_id)
     state = LessonState(
         has_question=current is not None,
         hint_level=case.hint_level,
@@ -110,8 +151,9 @@ async def run_case(provider: AIProvider, case: Case, grade: int = 8) -> CaseResu
     check = None
     misconception = None
     if case.event == "answer" and current and case.text:
-        value = parse_number(case.text)
-        check = check_answer(current["answer_data"], value) if value is not None else None
+        checker = checker_for(current["question_type"])
+        answer = checker.interpret(case.text, current["answer_data"])
+        check = checker.check(current["answer_data"], answer) if answer is not None else None
         if check and check.misconception_code:
             misconception = next(
                 m["description"] for m in MISCONCEPTIONS if m["code"] == check.misconception_code
@@ -120,24 +162,21 @@ async def run_case(provider: AIProvider, case: Case, grade: int = 8) -> CaseResu
     next_q = None
     if decision.ask_new_question:
         exclude = current["id"] if current else None
-        answer = current["answer_data"]["value"] if current else None
+        key = answer_key(current["question_type"], current["answer_data"]) if current else None
+        same_topic = [q for q in QUESTIONS if q["topic_id"] == topic_id and q["id"] != exclude]
         next_q = next(
             q
-            for q in QUESTIONS
-            if q["answer_data"]["kind"] == "percent_of"
-            and q["difficulty"] == 3  # the eval fixes difficulty; mastery is tested elsewhere
-            and q["id"] != exclude
-            and q["answer_data"]["value"] != answer
+            for q in sorted(same_topic, key=lambda q: abs(q["difficulty"] - 3))
+            # the eval fixes difficulty near 3; mastery is tested elsewhere
+            if key is None
+            or not answers_clash(answer_key(q["question_type"], q["answer_data"]), key)
         )
 
-    def info(q: dict | None) -> QuestionInfo | None:
-        return QuestionInfo(q["text"], float(q["answer_data"]["value"])) if q else None
-
-    protected = []
+    protected: list[Protected] = []
     if current and not decision.reveal_current_answer:
-        protected.append(float(current["answer_data"]["value"]))
+        protected += _protected(current, topic_name)
     if next_q:
-        protected.append(float(next_q["answer_data"]["value"]))
+        protected += _protected(next_q, topic_name)
 
     history = [{"role": r, "content": t} for r, t in case.history]
     if case.event == "hint":
@@ -150,18 +189,19 @@ async def run_case(provider: AIProvider, case: Case, grade: int = 8) -> CaseResu
     ctx = TurnContext(
         decision=decision,
         grade_level=grade,
-        topic_name="Percentages",
-        current=info(current),
-        next_question=info(next_q),
-        student_answer=check.value if check else None,
+        topic_name=topic_name,
+        current=_info(current),
+        next_question=_info(next_q),
+        student_answer=check.display if check else None,
         misconception=misconception,
+        profile=profile,
     )
 
     def build(stricter: bool) -> TurnRequest:
         from dataclasses import replace
 
         return TurnRequest(
-            SYSTEM_RULES,
+            system_rules(profile),
             build_messages(history, replace(ctx, stricter=stricter)),
             get_settings().ai_max_output_tokens,
         )
@@ -170,9 +210,8 @@ async def run_case(provider: AIProvider, case: Case, grade: int = 8) -> CaseResu
     async for _ in generate_reply(provider, build, protected, result):
         pass
 
-    from app.modules.teacher.guard import contains_any
-
     board_text = json.dumps(result.board)
+    numbers = [p.value for p in protected if isinstance(p, ProtectedNumber)]
     return CaseResult(
         case=case.id,
         action=decision.action,
@@ -180,7 +219,7 @@ async def run_case(provider: AIProvider, case: Case, grade: int = 8) -> CaseResu
         board_blocks=len(result.board),
         blocked_leaks=result.blocked_leaks,
         final_leak=contains_any(result.text + board_text, protected),
-        word_leak=word_leak(result.text + board_text, protected),
+        word_leak=word_leak(result.text + board_text, numbers),
         fallback=result.fallback,
         first_text_ms=result.first_text_ms,
         tokens_in=sum(u.tokens_in for u in result.usage),

@@ -188,6 +188,7 @@ pip install -e ".[dev]"                  # once, and after dependency changes
 copy .env.example .env                   # once
 docker compose up -d                     # from the ai-teacher folder: starts PostgreSQL
 alembic upgrade head                     # creates or updates the tables
+python -m app.modules.curriculum.seed    # loads subjects, courses, topics and questions
 uvicorn app.main:app --reload
 ```
 Open http://127.0.0.1:8000/docs. You should see `/api/v1/hello` and `/api/v1/health`.

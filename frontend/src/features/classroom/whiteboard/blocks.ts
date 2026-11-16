@@ -22,6 +22,7 @@ export interface EquationBlock {
 export interface QuestionBlock {
   type: "question";
   text: string;
+  options?: string[]; // multiple choice: shown as A), B), ...; never marks the right one
 }
 
 export type BoardBlock = TextBlock | StepBlock | EquationBlock | QuestionBlock;
@@ -36,8 +37,12 @@ export function parseBlocks(input: unknown): BoardBlock[] {
     const b = raw as Record<string, unknown>;
     switch (b.type) {
       case "text":
-      case "question":
         return isString(b.text);
+      case "question":
+        return (
+          isString(b.text) &&
+          (b.options === undefined || (Array.isArray(b.options) && b.options.every(isString)))
+        );
       case "step":
         return isString(b.text) && Number.isInteger(b.number);
       case "equation":

@@ -7,9 +7,10 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.adaptive.checkers import answer_key, answers_clash
 from app.modules.adaptive.models import QuestionAttempt
 from app.modules.classroom.models import LearningSession, Message
-from app.modules.curriculum.models import Misconception, Question, Topic
+from app.modules.curriculum.models import Misconception, Question, Subject, Topic
 
 
 async def get_session(db: AsyncSession, session_id: uuid.UUID) -> LearningSession | None:
@@ -37,6 +38,11 @@ async def get_topic(db: AsyncSession, topic_id: uuid.UUID) -> Topic | None:
 
 async def get_question(db: AsyncSession, question_id: uuid.UUID | None) -> Question | None:
     return await db.get(Question, question_id) if question_id else None
+
+
+async def subject_profile(db: AsyncSession, subject_id: uuid.UUID) -> str:
+    subject = await db.get(Subject, subject_id)
+    return subject.profile if subject else "general"
 
 
 async def topic_has_questions(db: AsyncSession, topic_id: uuid.UUID) -> bool:
@@ -90,7 +96,7 @@ async def pick_question(
     session_id: uuid.UUID,
     difficulty: int,
     exclude: set[uuid.UUID],
-    avoid_answers: set[float],
+    avoid_answers: set[str],
 ) -> Question | None:
     """An approved question near the target difficulty, preferring ones not yet tried."""
     questions = list(
@@ -105,7 +111,8 @@ async def pick_question(
     )
 
     def usable(q: Question) -> bool:
-        return q.id not in exclude and float(q.answer_data["value"]) not in avoid_answers
+        key = answer_key(q.question_type, q.answer_data)
+        return q.id not in exclude and not any(answers_clash(key, a) for a in avoid_answers)
 
     candidates = [q for q in questions if usable(q) and q.id not in tried] or [
         q for q in questions if usable(q)

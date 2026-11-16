@@ -28,8 +28,11 @@ def skill(data: dict, name: str) -> dict:
 def test_a_new_student_starts_at_the_beginning(client: TestClient) -> None:
     adult_student(client)
     data = progress(client)
-    [area] = data["areas"]
+    # A school student (grade 9) sees the school course first, then the university one.
+    area, mis = data["areas"]
     assert area["id"] == str(PERCENTAGES_ID) and area["name"] == "Percentages"
+    assert mis["name"] == "Introduction to MIS"
+    assert {s["course_level"] for s in mis["skills"]} == {"university"}
     assert area["mastery"] == 0
     assert [s["id"] for s in area["skills"]] == [
         str(CONVERT_ID),

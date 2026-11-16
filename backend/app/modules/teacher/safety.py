@@ -25,12 +25,12 @@ SAFE_RESPONSE = (
     "I'm really glad you told me. I'm an AI teacher, so I can't help with this the way a "
     "person can, and you deserve real support. Please talk to a trusted adult today, such "
     "as a parent, guardian, teacher or school counsellor. If you are in danger right now, "
-    "call your local emergency number. I'm here for maths whenever you're ready."
+    "call your local emergency number. I'm here for your studies whenever you're ready."
 )
 
 # Used when the model declines, fails, or keeps trying to reveal the answer.
 FALLBACK_RESPONSES = {
-    "refusal": "Let's get back to our maths. Have a look at the question on the board.",
+    "refusal": "Let's get back to our lesson. Have a look at the question on the board.",
     "leak": "Let's take it one step at a time. What do you think the first step is?",
     "unavailable": "Sorry, I'm having trouble thinking right now. Please try again in a moment.",
     "board_only": "Have a look at the board.",
