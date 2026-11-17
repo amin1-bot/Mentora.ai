@@ -3,7 +3,7 @@ import uuid
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Request, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile, status
 
 from app.core.config import get_settings
 from app.core.database import SessionDep
@@ -11,7 +11,12 @@ from app.core.errors import PayloadTooLarge
 from app.core.storage import Storage, get_storage
 from app.modules.auth.dependencies import CurrentUser, StudentUser, require_csrf
 from app.modules.documents import service
-from app.modules.documents.schemas import DocumentAccessOut, DocumentOut, DocumentRename
+from app.modules.documents.schemas import (
+    DocumentAccessOut,
+    DocumentOut,
+    DocumentRename,
+    SearchOut,
+)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -56,6 +61,18 @@ async def list_documents(student: StudentUser, session: SessionDep) -> list[Docu
     return await service.list_documents(session, student)
 
 
+# Declared before /{document_id} so "search" is never read as a document id.
+@router.get("/search")
+async def search_documents(
+    student: StudentUser,
+    session: SessionDep,
+    q: Annotated[str, Query(min_length=1, max_length=200)],
+    document_id: uuid.UUID | None = None,
+) -> SearchOut:
+    """Search the text of your own documents. Returns pages and short snippets."""
+    return await service.search(session, student, q, document_id)
+
+
 @router.get("/{document_id}")
 async def get_document(
     document_id: uuid.UUID, student: StudentUser, session: SessionDep
@@ -93,6 +110,14 @@ async def document_file(
             "Referrer-Policy": "no-referrer",
         },
     )
+
+
+@router.post("/{document_id}/process", dependencies=[Depends(require_csrf)])
+async def process_document(
+    document_id: uuid.UUID, student: StudentUser, session: SessionDep
+) -> DocumentOut:
+    """Try reading the text of a document again after processing failed."""
+    return await service.reprocess(session, student, document_id)
 
 
 @router.patch("/{document_id}", dependencies=[Depends(require_csrf)])

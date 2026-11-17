@@ -4,6 +4,7 @@ Run locally (from the backend folder):  uvicorn app.main:app --reload
 Then open http://127.0.0.1:8000/docs
 """
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -16,10 +17,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import get_settings
 from app.core.database import SessionDep, engine
 from app.core.errors import register_error_handlers
+from app.core.storage import get_storage
 from app.modules.auth.router import router as auth_router
 from app.modules.classroom.router import router as classroom_router
 from app.modules.curriculum.router import router as curriculum_router
 from app.modules.documents.router import router as documents_router
+from app.modules.jobs.worker import run_forever
 from app.modules.progress.router import router as progress_router
 from app.modules.students.router import guardians_router, students_router
 
@@ -28,7 +31,20 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    stop = asyncio.Event()
+    worker = None
+    # Local development: background jobs (reading uploaded PDFs) run inside the API.
+    # Tests run jobs themselves; production runs `python -m app.modules.jobs.worker`.
+    if settings.job_worker_in_api and settings.environment != "test":
+        worker = asyncio.create_task(run_forever(get_storage(), stop, settings.job_poll_seconds))
     yield
+    if worker is not None:
+        stop.set()
+        try:
+            await asyncio.wait_for(worker, timeout=10)
+        except TimeoutError:
+            worker.cancel()
     # Close pooled database connections cleanly when the server stops.
     await engine.dispose()
 

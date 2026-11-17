@@ -55,7 +55,9 @@ def test_upload_list_view_and_download_your_own_pdf(
     doc = r.json()
     assert doc["title"] == "Week 1 - Databases"
     assert doc["original_filename"] == "Week 1 - Databases.pdf"
-    assert doc["page_count"] == 3 and doc["size_bytes"] == len(pdf) and doc["status"] == "ready"
+    assert doc["page_count"] == 3 and doc["size_bytes"] == len(pdf)
+    # Viewable at once; its text is read in the background (test_document_processing.py).
+    assert doc["status"] == "processing" and doc["pages_with_text"] is None
     # Server-side details never reach the browser.
     assert "storage_key" not in doc and "sha256" not in doc and "owner_id" not in doc
 

@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     # Uploads start with adults only. Younger students later need a guardian's permission
     # (see documents/permissions.py), so this is the age at which no permission is needed.
     documents_min_age: int = 18
+    # Phase 3: reading the text out of uploaded PDFs in the background.
+    job_worker_in_api: bool = True  # run the job worker inside the API process (local dev)
+    job_poll_seconds: float = 2.0
+    document_processing_seconds: int = 180  # give up reading one PDF after this long
 
     @property
     def cors_origin_list(self) -> list[str]:

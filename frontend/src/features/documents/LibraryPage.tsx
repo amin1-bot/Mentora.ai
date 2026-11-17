@@ -6,14 +6,16 @@ import { Button } from "../../components/Button";
 import { TextField } from "../../components/Form";
 import { Loading } from "../../components/Temporary";
 import { errorMessage } from "../../lib/errors";
-import type { DocumentAccess, StudyDocument } from "../../types/api";
+import type { DocumentAccess, SearchHit, StudyDocument } from "../../types/api";
 import styles from "./library.module.css";
 import {
   openDocument,
   useDeleteDocument,
   useDocumentAccess,
+  useDocumentSearch,
   useDocuments,
   useRenameDocument,
+  useReprocessDocument,
   useUploadDocument,
 } from "./useDocuments";
 
@@ -21,7 +23,9 @@ const MB = 1024 * 1024;
 
 export function formatSize(bytes: number): string {
   if (bytes === 0) return "0 KB";
-  return bytes < MB ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / MB).toFixed(1)} MB`;
+  return bytes < MB
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / MB).toFixed(1)} MB`;
 }
 
 export function LibraryPage() {
@@ -30,7 +34,8 @@ export function LibraryPage() {
   const documents = useDocuments();
 
   if (access.isPending || documents.isPending) return <Loading />;
-  if (access.isError) return <Alert tone="error">{errorMessage(access.error, t)}</Alert>;
+  if (access.isError)
+    return <Alert tone="error">{errorMessage(access.error, t)}</Alert>;
 
   return (
     <div className={styles.page}>
@@ -43,6 +48,7 @@ export function LibraryPage() {
           {access.data.reason}
         </Alert>
       )}
+      {documents.data && documents.data.length > 0 && <Search />}
       <section aria-labelledby="library-docs">
         <h2 id="library-docs">{t("library.yourDocuments")}</h2>
         {documents.isError ? (
@@ -75,7 +81,8 @@ function Uploader({ access }: { access: DocumentAccess }) {
     upload.reset();
     if (!file) return;
     // Quick checks for a friendly message; the server checks everything again.
-    if (!file.name.toLowerCase().endsWith(".pdf")) return setLocalError(t("library.onlyPdf"));
+    if (!file.name.toLowerCase().endsWith(".pdf"))
+      return setLocalError(t("library.onlyPdf"));
     if (file.size > limits.max_file_mb * MB)
       return setLocalError(t("library.tooLarge", { mb: limits.max_file_mb }));
     upload.mutate(file);
@@ -85,7 +92,10 @@ function Uploader({ access }: { access: DocumentAccess }) {
     <section className={styles.uploader} aria-labelledby="library-upload">
       <h2 id="library-upload">{t("library.uploadTitle")}</h2>
       <p className={styles.meta}>
-        {t("library.rules", { mb: limits.max_file_mb, pages: limits.max_pages })}
+        {t("library.rules", {
+          mb: limits.max_file_mb,
+          pages: limits.max_pages,
+        })}
       </p>
       <input
         ref={input}
@@ -96,7 +106,10 @@ function Uploader({ access }: { access: DocumentAccess }) {
         onChange={choose}
         disabled={upload.isPending}
       />
-      <Button onClick={() => input.current?.click()} disabled={upload.isPending}>
+      <Button
+        onClick={() => input.current?.click()}
+        disabled={upload.isPending}
+      >
         {upload.isPending ? t("library.uploading") : t("library.choose")}
       </Button>
       <p className={styles.meta}>
@@ -108,12 +121,179 @@ function Uploader({ access }: { access: DocumentAccess }) {
         })}
       </p>
       {localError && <Alert tone="error">{localError}</Alert>}
-      {upload.isError && <Alert tone="error">{errorMessage(upload.error, t)}</Alert>}
+      {upload.isError && (
+        <Alert tone="error">{errorMessage(upload.error, t)}</Alert>
+      )}
       {upload.isSuccess && (
-        <Alert tone="success">{t("library.uploaded", { title: upload.data.title })}</Alert>
+        <Alert tone="success">
+          {t("library.uploaded", { title: upload.data.title })}
+        </Alert>
       )}
     </section>
   );
+}
+
+const MARK_START = "\u27e6";
+const MARK_END = "\u27e7";
+
+/** Splits a snippet on the server's match markers into text and highlighted parts.
+ * Rendered as React text, never as HTML, so document text cannot inject markup. */
+export function snippetParts(
+  snippet: string,
+): { text: string; match: boolean }[] {
+  const parts: { text: string; match: boolean }[] = [];
+  for (const piece of snippet.split(MARK_START)) {
+    const end = piece.indexOf(MARK_END);
+    if (end === -1) {
+      if (piece) parts.push({ text: piece, match: false });
+    } else {
+      parts.push({ text: piece.slice(0, end), match: true });
+      if (piece.slice(end + 1))
+        parts.push({ text: piece.slice(end + 1), match: false });
+    }
+  }
+  return parts;
+}
+
+function Search() {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState("");
+  const [q, setQ] = useState("");
+  const search = useDocumentSearch(q);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    setQ(draft.trim());
+  }
+
+  return (
+    <section className={styles.search} aria-labelledby="library-search">
+      <h2 id="library-search">{t("library.searchTitle")}</h2>
+      <form className={styles.searchForm} onSubmit={submit} role="search">
+        <TextField
+          label={t("library.searchLabel")}
+          value={draft}
+          maxLength={200}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <Button type="submit" disabled={!draft.trim() || search.isFetching}>
+          {search.isFetching
+            ? t("library.searching")
+            : t("library.searchButton")}
+        </Button>
+      </form>
+      {search.isError && (
+        <Alert tone="error">{errorMessage(search.error, t)}</Alert>
+      )}
+      {search.isSuccess &&
+        (search.data.results.length === 0 ? (
+          <p className={styles.meta}>
+            {t("library.noResults", { q: search.data.query })}
+          </p>
+        ) : (
+          <ol className={styles.results} aria-label={t("library.resultsLabel")}>
+            {search.data.results.map((hit, i) => (
+              <SearchResult
+                key={`${hit.document_id}-${hit.page_start}-${i}`}
+                hit={hit}
+              />
+            ))}
+          </ol>
+        ))}
+    </section>
+  );
+}
+
+function SearchResult({ hit }: { hit: SearchHit }) {
+  const { t } = useTranslation();
+  const [openError, setOpenError] = useState<unknown>(null);
+  const pages =
+    hit.page_start === hit.page_end
+      ? t("library.page", { page: hit.page_start })
+      : t("library.pages", { start: hit.page_start, end: hit.page_end });
+
+  function open() {
+    setOpenError(null);
+    openDocument(
+      { id: hit.document_id, original_filename: hit.document_title },
+      "view",
+      hit.page_start,
+    ).catch(setOpenError);
+  }
+
+  return (
+    <li className={styles.result}>
+      <p className={styles.resultHead}>
+        <strong>{hit.document_title}</strong> · {pages}
+        {hit.heading && <> · {hit.heading}</>}
+      </p>
+      <p className={styles.snippet}>
+        {snippetParts(hit.snippet).map((part, i) =>
+          part.match ? (
+            <mark key={i}>{part.text}</mark>
+          ) : (
+            <span key={i}>{part.text}</span>
+          ),
+        )}
+      </p>
+      <div>
+        <Button variant="secondary" onClick={open}>
+          {t("library.openAtPage", { page: hit.page_start })}
+        </Button>
+      </div>
+      {openError != null && (
+        <Alert tone="error">{errorMessage(openError, t)}</Alert>
+      )}
+    </li>
+  );
+}
+
+function ProcessingStatus({ doc }: { doc: StudyDocument }) {
+  const { t } = useTranslation();
+  const retry = useReprocessDocument();
+
+  if (doc.status === "processing")
+    return (
+      <p className={styles.status} role="status">
+        <span className={styles.spinner} aria-hidden="true" />
+        {t("library.processing")}
+      </p>
+    );
+  if (doc.status === "failed")
+    return (
+      <div className={styles.statusFailed}>
+        <p className={styles.warning}>
+          {t(`library.failed.${doc.error_code ?? "processing_failed"}`, {
+            defaultValue: t("library.failed.processing_failed"),
+          })}
+        </p>
+        <Button
+          variant="secondary"
+          disabled={retry.isPending}
+          onClick={() => retry.mutate(doc.id)}
+        >
+          {t("library.retry")}
+        </Button>
+        {retry.isError && (
+          <Alert tone="error">{errorMessage(retry.error, t)}</Alert>
+        )}
+      </div>
+    );
+  const total = doc.page_count ?? 0;
+  const withText = doc.pages_with_text ?? 0;
+  if (withText === 0)
+    return <p className={styles.meta}>{t("library.noTextLayer")}</p>;
+  if (withText < total)
+    return (
+      <p className={styles.meta}>
+        {t("library.partlySearchable", {
+          count: withText,
+          total,
+          scanned: total - withText,
+        })}
+      </p>
+    );
+  return <p className={styles.meta}>{t("library.searchable")}</p>;
 }
 
 function DocumentRow({ doc }: { doc: StudyDocument }) {
@@ -125,9 +305,9 @@ function DocumentRow({ doc }: { doc: StudyDocument }) {
   const [confirming, setConfirming] = useState(false);
   const [openError, setOpenError] = useState<unknown>(null);
 
-  const date = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }).format(
-    new Date(doc.created_at),
-  );
+  const date = new Intl.DateTimeFormat(i18n.language, {
+    dateStyle: "medium",
+  }).format(new Date(doc.created_at));
 
   function open(mode: "view" | "download") {
     setOpenError(null);
@@ -136,7 +316,10 @@ function DocumentRow({ doc }: { doc: StudyDocument }) {
 
   function save(event: FormEvent) {
     event.preventDefault();
-    rename.mutate({ id: doc.id, title }, { onSuccess: () => setEditing(false) });
+    rename.mutate(
+      { id: doc.id, title },
+      { onSuccess: () => setEditing(false) },
+    );
   }
 
   return (
@@ -167,6 +350,7 @@ function DocumentRow({ doc }: { doc: StudyDocument }) {
           date,
         })}
       </p>
+      <ProcessingStatus doc={doc} />
       <div className={styles.actions}>
         <Button variant="secondary" onClick={() => open("view")}>
           {t("library.view")}
@@ -198,10 +382,18 @@ function DocumentRow({ doc }: { doc: StudyDocument }) {
           </Button>
         )}
       </div>
-      {confirming && <p className={styles.warning}>{t("library.deleteWarning")}</p>}
-      {rename.isError && <Alert tone="error">{errorMessage(rename.error, t)}</Alert>}
-      {remove.isError && <Alert tone="error">{errorMessage(remove.error, t)}</Alert>}
-      {openError != null && <Alert tone="error">{errorMessage(openError, t)}</Alert>}
+      {confirming && (
+        <p className={styles.warning}>{t("library.deleteWarning")}</p>
+      )}
+      {rename.isError && (
+        <Alert tone="error">{errorMessage(rename.error, t)}</Alert>
+      )}
+      {remove.isError && (
+        <Alert tone="error">{errorMessage(remove.error, t)}</Alert>
+      )}
+      {openError != null && (
+        <Alert tone="error">{errorMessage(openError, t)}</Alert>
+      )}
     </li>
   );
 }

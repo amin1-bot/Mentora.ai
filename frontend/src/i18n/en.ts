@@ -25,7 +25,8 @@ export const en = {
     body: "Mentora asks questions, gives hints instead of answers, and remembers what you know.",
     login: "Log in",
     signup: "Create a student account",
-    guardianNote: "Parents and guardians receive an email with their own sign-up link.",
+    guardianNote:
+      "Parents and guardians receive an email with their own sign-up link.",
   },
   auth: {
     email: "Email",
@@ -56,19 +57,24 @@ export const en = {
     intro: "{{name}} has asked you to approve their Mentora account.",
     whatWeStore: "What Mentora stores",
     storeEmail: "Email address and a secure password hash",
-    storeBirth: "Date of birth and school grade, to apply age rules and pick the right level",
+    storeBirth:
+      "Date of birth and school grade, to apply age rules and pick the right level",
     storeLessons: "Lesson messages and progress, which you can view and delete",
-    notStored: "Never stored: voice recordings or photos. Not used to train AI models.",
+    notStored:
+      "Never stored: voice recordings or photos. Not used to train AI models.",
     draftNotice:
       "Draft wording (version {{version}}). The final text will be reviewed before launch.",
-    needAccount: "Create your guardian account, or log in, using the email address that received the invitation.",
+    needAccount:
+      "Create your guardian account, or log in, using the email address that received the invitation.",
     createGuardian: "Create guardian account",
     loginGuardian: "Log in instead",
     signupInstead: "Create an account instead",
-    confirm: "I am this student's parent or legal guardian, and I approve their account.",
+    confirm:
+      "I am this student's parent or legal guardian, and I approve their account.",
     approve: "Approve account",
     approved: "Thank you. {{name}}'s account is approved.",
-    wrongRole: "You are logged in as a student. Log out, then open the link again.",
+    wrongRole:
+      "You are logged in as a student. Log out, then open the link again.",
   },
   dashboard: {
     greeting: "Hello, {{name}}",
@@ -88,7 +94,8 @@ export const en = {
     noTopics: "No topics are available yet.",
     recommendedTitle: "Recommended next",
     recommendedBody: "Based on your mastery so far.",
-    allMastered: "You have mastered every skill here. Great work! Keep practising to stay sharp.",
+    allMastered:
+      "You have mastered every skill here. Great work! Keep practising to stay sharp.",
     viewProgress: "See your progress",
     guardianTitle: "Guardian home",
     guardianBody:
@@ -172,7 +179,31 @@ export const en = {
     cancel: "Cancel",
     delete: "Delete",
     confirmDelete: "Delete permanently",
-    deleteWarning: "This removes the file for good. It cannot be undone.",
+    deleteWarning:
+      "This removes the file and its text for good. It cannot be undone.",
+    processing: "Reading the text so you can search it…",
+    searchable: "All pages are searchable.",
+    partlySearchable:
+      "{{count}} of {{total}} pages are searchable. {{scanned}} look like scanned images; reading those comes later.",
+    noTextLayer:
+      "This PDF looks scanned (images of pages), so its text can't be searched yet. You can still view it.",
+    failed: {
+      pdf_unreadable:
+        "Mentora could not read the text of this PDF. You can still view it.",
+      processing_timeout:
+        "Reading this PDF took too long. You can still view it.",
+      processing_failed: "Reading the text failed. You can still view it.",
+    },
+    retry: "Try again",
+    searchTitle: "Search your documents",
+    searchLabel: "Words to find",
+    searchButton: "Search",
+    searching: "Searching…",
+    noResults: "Nothing found for “{{q}}”.",
+    resultsLabel: "Search results",
+    page: "page {{page}}",
+    pages: "pages {{start}}–{{end}}",
+    openAtPage: "Open at page {{page}}",
   },
   settings: {
     title: "Settings",
@@ -188,23 +219,32 @@ export const en = {
   },
   errors: {
     generic: "Something went wrong. Please try again.",
-    network_error: "Cannot reach the server. Check that the backend is running.",
+    network_error:
+      "Cannot reach the server. Check that the backend is running.",
     invalid_credentials: "That email and password don't match.",
     account_locked: "Too many wrong passwords. Try again in 15 minutes.",
     too_many_requests: "Too many attempts. Please wait a minute.",
     email_taken: "An account with this email already exists.",
     age_below_minimum: "Mentora is for students aged 13 and over.",
-    guardian_email_required: "Students under 18 need a parent or guardian email.",
-    guardian_email_same_as_student: "The guardian email must be different from yours.",
-    weak_password: "Choose a stronger password: at least 10 characters, not your email name.",
+    guardian_email_required:
+      "Students under 18 need a parent or guardian email.",
+    guardian_email_same_as_student:
+      "The guardian email must be different from yours.",
+    weak_password:
+      "Choose a stronger password: at least 10 characters, not your email name.",
     validation_error: "Please check the highlighted fields.",
     invite_invalid: "This invitation link is invalid or has expired.",
-    invite_email_mismatch: "Log in with the email address this invitation was sent to.",
-    consent_version_outdated: "The consent text changed. Reload the page and review it again.",
+    invite_email_mismatch:
+      "Log in with the email address this invitation was sent to.",
+    consent_version_outdated:
+      "The consent text changed. Reload the page and review it again.",
     invalid_date_of_birth: "Date of birth cannot be in the future.",
-    consent_required: "A parent or guardian needs to approve your account before lessons.",
-    daily_limit: "That's a lot of learning for one day! Take a break and come back tomorrow.",
-    ai_unavailable: "The teacher is having trouble right now. Please try again in a moment.",
+    consent_required:
+      "A parent or guardian needs to approve your account before lessons.",
+    daily_limit:
+      "That's a lot of learning for one day! Take a break and come back tomorrow.",
+    ai_unavailable:
+      "The teacher is having trouble right now. Please try again in a moment.",
     session_ended: "This lesson has ended. Start a new one from your topics.",
     topic_not_found: "This topic is not available yet.",
   },

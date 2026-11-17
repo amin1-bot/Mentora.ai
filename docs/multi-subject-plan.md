@@ -244,7 +244,7 @@ upload ─► validate ─► store privately ─► job: extract pages ─► O
 
 | Question | Decision (Opinion) and reason |
 |---|---|
-| Who extracts the text? | **Our code** (PyMuPDF), not the AI provider. Provider-neutral, free, fast, and page numbers are exact |
+| Who extracts the text? | **Our code**, not the AI provider. Provider-neutral, free, fast, and page numbers are exact. Built with **pypdf** (BSD licence) rather than PyMuPDF, whose AGPL licence would oblige Mentora to publish its own source code |
 | Scanned pages (no text layer)? | Send just those pages to a vision-capable model for transcription. Avoids installing Tesseract, and handles handwriting and diagrams better. Costs AI tokens, so it counts against the user's budget |
 | Diagrams and tables? | Keep a page image for each page that has figures; "explain this diagram" sends that one page image to the model. Tables: text extraction first, model only when asked |
 | Search | **PostgreSQL full-text search** with a `simple` text configuration (works across English, Turkish, Russian; no per-language stemming at first). Claude has no embeddings endpoint (Fact), so semantic search would mean another vendor; add `pgvector` with an embeddings provider only if measured search quality is poor |

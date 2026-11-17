@@ -4,17 +4,31 @@ from app.db_models import Base
 from app.tests.helpers import query
 
 BLUEPRINT_TABLES = {
-    "users", "student_profiles", "guardian_links",
-    "subjects", "topics", "topic_prerequisites", "misconceptions", "questions",
-    "learning_sessions", "messages", "question_attempts", "topic_mastery", "mastery_events",
-    "ai_requests", "audit_log",
+    "users",
+    "student_profiles",
+    "guardian_links",
+    "subjects",
+    "topics",
+    "topic_prerequisites",
+    "misconceptions",
+    "questions",
+    "learning_sessions",
+    "messages",
+    "question_attempts",
+    "topic_mastery",
+    "mastery_events",
+    "ai_requests",
+    "audit_log",
 }
 # Added in Phase 3 for login tokens, guardian invitations (see README).
 PHASE_3_TABLES = {"refresh_tokens", "guardian_invites"}
 # Multi-subject plan, phase 1: the catalogue above subjects and below topics.
 CATALOGUE_TABLES = {"disciplines", "courses", "learning_objectives"}
 DOCUMENT_TABLES = {"documents"}  # phase 2: uploads
-ALL_TABLES = BLUEPRINT_TABLES | PHASE_3_TABLES | CATALOGUE_TABLES | DOCUMENT_TABLES
+PROCESSING_TABLES = {"document_pages", "document_chunks", "jobs"}  # phase 3
+ALL_TABLES = (
+    BLUEPRINT_TABLES | PHASE_3_TABLES | CATALOGUE_TABLES | DOCUMENT_TABLES | PROCESSING_TABLES
+)
 
 
 def test_models_define_all_tables() -> None:

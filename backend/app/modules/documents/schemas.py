@@ -12,7 +12,9 @@ class DocumentOut(BaseModel):
     original_filename: str
     size_bytes: int
     page_count: int | None
-    status: str
+    status: str  # processing | ready | failed
+    error_code: str | None  # why it failed, or "no_text_layer" for scans
+    pages_with_text: int | None  # how many pages are searchable
     created_at: datetime
 
 
@@ -40,3 +42,19 @@ class DocumentAccessOut(BaseModel):
 
 class DocumentRename(BaseModel):
     title: str = Field(min_length=1, max_length=200)
+
+
+class SearchHit(BaseModel):
+    document_id: uuid.UUID
+    document_title: str
+    page_start: int
+    page_end: int
+    heading: str | None
+    # Plain text; matched words are wrapped in U+27E6 and U+27E7 (never HTML).
+    snippet: str
+
+
+class SearchOut(BaseModel):
+    query: str
+    terms: list[str]
+    results: list[SearchHit]

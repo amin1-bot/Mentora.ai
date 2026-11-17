@@ -194,6 +194,13 @@ uvicorn app.main:app --reload
 Open http://127.0.0.1:8000/docs. You should see `/api/v1/hello` and `/api/v1/health`.
 `/api/v1/health` should say `"database": "ok"`.
 
+Background jobs (reading the text of uploaded PDFs) run inside the API by default, so
+nothing else needs starting locally. In production set `JOB_WORKER_IN_API=false` and run
+one or more workers next to the API:
+```powershell
+python -m app.modules.jobs.worker
+```
+
 Tests and lint (Docker must be running). Tests use their own `mentora_test` database,
 created and migrated automatically, and emptied before every test:
 ```powershell

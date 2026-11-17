@@ -7,11 +7,13 @@ Security rules (each has a test in test_documents.py):
 - The storage key and file hash never leave the server.
 - Logs and the audit trail record ids only, never file names or contents.
 
-Other modules (phase 3: text extraction, AI teacher) read documents through `read_file`
-and `get_owned`, so the same checks apply to them.
+After upload the text is read in the background (processing.py); search only ever looks
+at the searching student's own chunks. Other modules (the AI teacher, later) read documents
+through `read_file`, `get_owned` and `search`, so the same checks apply to them.
 """
 
 import logging
+import re
 import uuid
 
 from fastapi import UploadFile
@@ -21,9 +23,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.config import get_settings
-from app.core.errors import AppError, Conflict, Forbidden, NotFound, PayloadTooLarge
+from app.core.errors import (
+    AppError,
+    Conflict,
+    Forbidden,
+    NotFound,
+    PayloadTooLarge,
+    Unprocessable,
+)
 from app.core.storage import Storage, StorageError
 from app.modules.auth.models import User
+from app.modules.documents import processing
 from app.modules.documents import repository as repo
 from app.modules.documents.models import Document
 from app.modules.documents.permissions import upload_access
@@ -32,8 +42,11 @@ from app.modules.documents.schemas import (
     DocumentLimits,
     DocumentOut,
     DocumentUsage,
+    SearchHit,
+    SearchOut,
 )
 from app.modules.documents.validation import PDF_MIME, check_pdf
+from app.modules.jobs.queue import enqueue
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +68,8 @@ def to_out(d: Document) -> DocumentOut:
         size_bytes=d.size_bytes,
         page_count=d.page_count,
         status=d.status,
+        error_code=d.error_code,
+        pages_with_text=d.pages_with_text,
         created_at=d.created_at,
     )
 
@@ -138,9 +153,11 @@ async def upload(db: AsyncSession, storage: Storage, user: User, file: UploadFil
         page_count=checked.page_count,
         sha256=checked.sha256,
         storage_key=key,
-        status="ready",
+        status="processing",
     )
     db.add(doc)
+    # Saved in the same transaction as the document: never a document without its job.
+    enqueue(db, processing.JOB_KIND, {"document_id": str(document_id)}, user_id=user.id)
     record_audit(db, actor_id=user.id, action="upload", entity="document", entity_id=document_id)
     try:
         await db.commit()
@@ -178,6 +195,57 @@ async def read_file(
         logger.error("Reading document %s failed: %s", doc.id, exc)
         raise StorageUnavailable() from exc
     return doc, data
+
+
+async def reprocess(db: AsyncSession, user: User, document_id: uuid.UUID) -> DocumentOut:
+    """Try reading the text again after a failure."""
+    doc = await get_owned(db, user, document_id)
+    if doc.status != "failed":
+        raise Conflict("This document does not need to be processed again.", code="not_failed")
+    doc.status, doc.error_code = "processing", None
+    enqueue(db, processing.JOB_KIND, {"document_id": str(doc.id)}, user_id=user.id)
+    await db.commit()
+    await db.refresh(doc)
+    return to_out(doc)
+
+
+SEARCH_MAX_WORDS = 12
+
+
+def search_terms(q: str) -> list[str]:
+    """Words to look for: letters and digits only (so nothing typed is ever read as search
+    syntax), at least two characters unless a number, at most SEARCH_MAX_WORDS."""
+    words = re.findall(r"[^\W_]+", q.lower())
+    return [w for w in words if len(w) >= 2 or w.isdigit()][:SEARCH_MAX_WORDS]
+
+
+async def search(
+    db: AsyncSession, user: User, q: str, document_id: uuid.UUID | None = None, limit: int = 20
+) -> SearchOut:
+    """Full-text search over the student's own documents, best matches first."""
+    terms = search_terms(q)
+    if not terms:
+        raise Unprocessable("Type at least two letters to search.", code="search_too_short")
+    if document_id is not None:
+        await get_owned(db, user, document_id)  # someone else's id: 404, as everywhere
+    # Every word must appear; "databa" also finds "database" (prefix match).
+    tsquery = " & ".join(f"{t}:*" for t in terms)
+    rows = await repo.search_chunks(db, user.id, tsquery, document_id, limit)
+    return SearchOut(
+        query=q,
+        terms=terms,
+        results=[
+            SearchHit(
+                document_id=r.document_id,
+                document_title=r.title,
+                page_start=r.page_start,
+                page_end=r.page_end,
+                heading=r.heading,
+                snippet=r.snippet,
+            )
+            for r in rows
+        ],
+    )
 
 
 async def rename(db: AsyncSession, user: User, document_id: uuid.UUID, title: str) -> DocumentOut:

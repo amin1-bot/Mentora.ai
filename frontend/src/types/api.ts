@@ -71,7 +71,8 @@ export interface Topic {
 export interface LessonState {
   has_question: boolean;
   question_text: string | null;
-  question_type: "numeric" | "multiple_choice" | "true_false" | "fill_blank" | null;
+  question_type:
+    "numeric" | "multiple_choice" | "true_false" | "fill_blank" | null;
   question_options: string[] | null; // multiple choice only; never says which is right
   hint_level: number;
   max_hint_level: number;
@@ -79,7 +80,8 @@ export interface LessonState {
   mastery_level: MasteryLevel;
 }
 
-export type MasteryLevel = "not_started" | "learning" | "practising" | "mastered";
+export type MasteryLevel =
+  "not_started" | "learning" | "practising" | "mastered";
 
 export interface SkillProgress {
   id: string;
@@ -133,15 +135,40 @@ export interface StudyDocument {
   original_filename: string;
   size_bytes: number;
   page_count: number | null;
+  /** The file is viewable in every status; "processing" means its text is being read. */
   status: "ready" | "processing" | "failed";
+  /** Why processing failed, or "no_text_layer" when every page is a scan. */
+  error_code: string | null;
+  pages_with_text: number | null;
   created_at: string;
+}
+
+export interface SearchHit {
+  document_id: string;
+  document_title: string;
+  page_start: number;
+  page_end: number;
+  heading: string | null;
+  /** Plain text; matched words are wrapped in \u27e6 and \u27e7. */
+  snippet: string;
+}
+
+export interface SearchResults {
+  query: string;
+  terms: string[];
+  results: SearchHit[];
 }
 
 export interface DocumentAccess {
   can_upload: boolean;
   reason_code: string | null;
   reason: string | null;
-  limits: { max_file_mb: number; max_pages: number; max_documents: number; quota_mb: number };
+  limits: {
+    max_file_mb: number;
+    max_pages: number;
+    max_documents: number;
+    quota_mb: number;
+  };
   usage: { documents: number; bytes_used: number };
 }
 
