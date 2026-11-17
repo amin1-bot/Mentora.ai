@@ -17,6 +17,7 @@ const ClassroomPage = lazy(() =>
   import("../features/classroom/ClassroomPage").then((m) => ({ default: m.ClassroomPage })),
 );
 import { HomePage } from "../features/dashboard/HomePage";
+import { LibraryPage } from "../features/documents/LibraryPage";
 import { ProgressPage } from "../features/progress/ProgressPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { AppShell } from "./AppShell";
@@ -45,6 +46,7 @@ export const routes = [
     children: [
       { path: "/home", element: <HomePage /> },
       { path: "/progress", element: <RequireAuth roles={["student"]}><ProgressPage /></RequireAuth> },
+      { path: "/library", element: <RequireAuth roles={["student"]}><LibraryPage /></RequireAuth> },
       { path: "/settings", element: <SettingsPage /> },
     ],
   },

@@ -115,3 +115,15 @@ def teacher() -> Iterator[ScriptedProvider]:
     app.dependency_overrides[get_ai_provider] = lambda: provider
     yield provider
     app.dependency_overrides.pop(get_ai_provider, None)
+
+
+@pytest.fixture(autouse=True)
+def private_storage(tmp_path: Path) -> Iterator[Path]:
+    """Every test stores uploads in its own temporary folder, never in backend/storage."""
+    from app.core.storage import LocalStorage, get_storage
+    from app.main import app
+
+    root = tmp_path / "storage"
+    app.dependency_overrides[get_storage] = lambda: LocalStorage(root)
+    yield root
+    app.dependency_overrides.pop(get_storage, None)

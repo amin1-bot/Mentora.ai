@@ -53,7 +53,8 @@ export function refreshSession(): Promise<boolean> {
 
 export function send(method: string, path: string, body?: unknown): Promise<Response> {
   const headers: Record<string, string> = {};
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const isForm = body instanceof FormData; // file uploads: the browser sets the boundary
+  if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (method !== "GET") {
     const csrf = readCookie(CSRF_COOKIE);
     if (csrf) headers["X-CSRF-Token"] = csrf;
@@ -62,11 +63,11 @@ export function send(method: string, path: string, body?: unknown): Promise<Resp
     method,
     credentials: "include",
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
   });
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function fetchWithRefresh(method: string, path: string, body?: unknown): Promise<Response> {
   let response: Response;
   try {
     response = await send(method, path, body);
@@ -84,6 +85,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ApiError(0, "network_error", "Cannot reach the server.");
   }
   if (!response.ok) throw await toApiError(response);
+  return response;
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const response = await fetchWithRefresh(method, path, body);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
@@ -92,4 +98,13 @@ export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
+  delete: (path: string) => request<void>("DELETE", path),
+  /** Sends one file as multipart form data (field name "file"). */
+  upload: <T>(path: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<T>("POST", path, form);
+  },
+  /** Downloads a file the user is allowed to see (with the login cookie), as a Blob. */
+  blob: async (path: string) => (await fetchWithRefresh("GET", path)).blob(),
 };

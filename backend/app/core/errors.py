@@ -50,6 +50,24 @@ class Conflict(AppError):
     message = "This conflicts with existing data."
 
 
+class PayloadTooLarge(AppError):
+    status_code = status.HTTP_413_CONTENT_TOO_LARGE
+    code = "payload_too_large"
+    message = "That file is too large."
+
+
+class UnsupportedMediaType(AppError):
+    status_code = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+    code = "unsupported_media_type"
+    message = "That file type is not supported."
+
+
+class Unprocessable(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    code = "unprocessable"
+    message = "That file could not be read."
+
+
 class TooManyRequests(AppError):
     status_code = status.HTTP_429_TOO_MANY_REQUESTS
     code = "too_many_requests"

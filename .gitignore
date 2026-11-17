@@ -23,3 +23,6 @@ Thumbs.db
 
 # Evaluation output (model replies; regenerate any time)
 backend/evaluation/reports/
+
+# Uploaded documents (private user files: never commit)
+backend/storage/

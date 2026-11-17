@@ -127,6 +127,24 @@ export interface LessonSession {
 
 export type TurnIntent = "start" | "message" | "hint" | "dont_get_it";
 
+export interface StudyDocument {
+  id: string;
+  title: string;
+  original_filename: string;
+  size_bytes: number;
+  page_count: number | null;
+  status: "ready" | "processing" | "failed";
+  created_at: string;
+}
+
+export interface DocumentAccess {
+  can_upload: boolean;
+  reason_code: string | null;
+  reason: string | null;
+  limits: { max_file_mb: number; max_pages: number; max_documents: number; quota_mb: number };
+  usage: { documents: number; bytes_used: number };
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

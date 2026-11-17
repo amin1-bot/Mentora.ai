@@ -13,7 +13,8 @@ BLUEPRINT_TABLES = {
 PHASE_3_TABLES = {"refresh_tokens", "guardian_invites"}
 # Multi-subject plan, phase 1: the catalogue above subjects and below topics.
 CATALOGUE_TABLES = {"disciplines", "courses", "learning_objectives"}
-ALL_TABLES = BLUEPRINT_TABLES | PHASE_3_TABLES | CATALOGUE_TABLES
+DOCUMENT_TABLES = {"documents"}  # phase 2: uploads
+ALL_TABLES = BLUEPRINT_TABLES | PHASE_3_TABLES | CATALOGUE_TABLES | DOCUMENT_TABLES
 
 
 def test_models_define_all_tables() -> None:
@@ -48,5 +49,8 @@ def test_student_data_is_deleted_with_the_user() -> None:
     )
     rules = {(t, c): rule for t, c, rule in rows}
     assert rules.pop(("audit_log", "actor_id")) == "SET NULL"
+    # Who uploaded a document (later: a guardian for a child). The document belongs to its
+    # owner, and documents.owner_id does cascade, so deleting the uploader keeps it.
+    assert rules.pop(("documents", "uploaded_by_id")) == "SET NULL"
     assert rules, "expected foreign keys to users"
     assert all(rule == "CASCADE" for rule in rules.values()), rules

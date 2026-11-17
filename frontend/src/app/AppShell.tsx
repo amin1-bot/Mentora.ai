@@ -14,7 +14,12 @@ export function AppShell() {
 
   const links = [
     { to: "/home", label: t("nav.home") },
-    ...(isStudent ? [{ to: "/progress", label: t("nav.progress") }] : []),
+    ...(isStudent
+      ? [
+          { to: "/progress", label: t("nav.progress") },
+          { to: "/library", label: t("nav.library") },
+        ]
+      : []),
     { to: "/settings", label: t("nav.settings") },
   ];
 

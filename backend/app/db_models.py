@@ -16,6 +16,7 @@ from app.modules.curriculum.models import (
     Topic,
     TopicPrerequisite,
 )
+from app.modules.documents.models import Document
 from app.modules.students.models import GuardianInvite, GuardianLink, StudentProfile
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "Base",
     "Course",
     "Discipline",
+    "Document",
     "GuardianInvite",
     "GuardianLink",
     "LearningObjective",

@@ -42,6 +42,17 @@
   color: var(--color-text);
 }
 
+.danger {
+  background: var(--color-danger);
+  color: var(--color-on-primary);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: var(--color-on-primary);
+  filter: brightness(0.9);
+}
+
 .ghost {
   background: transparent;
   color: var(--color-primary);

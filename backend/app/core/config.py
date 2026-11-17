@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     ai_history_messages: int = 12  # how many recent messages the model sees
     daily_message_limit: int = 150  # per student, protects cost and encourages breaks
 
+    # --- Documents (multi-subject plan, phase 2) ---
+    storage_backend: str = "local"  # "local" for now; a private cloud bucket later
+    # Private folder for uploads: never served as static files, git-ignored.
+    storage_dir: Path = BACKEND_DIR / "storage"
+    document_max_mb: int = 25  # per file
+    document_max_pages: int = 300
+    document_max_count: int = 50  # per student
+    document_quota_mb: int = 500  # total per student
+    # Uploads start with adults only. Younger students later need a guardian's permission
+    # (see documents/permissions.py), so this is the age at which no permission is needed.
+    documents_min_age: int = 18
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
