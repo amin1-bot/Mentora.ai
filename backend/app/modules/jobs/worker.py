@@ -36,8 +36,12 @@ class Handler:
 
 def handlers() -> dict[str, Handler]:
     from app.modules.documents import processing
+    from app.modules.quizzes import generation
 
-    return {processing.JOB_KIND: Handler(processing.run_job, processing.give_up)}
+    return {
+        processing.JOB_KIND: Handler(processing.run_job, processing.give_up),
+        generation.JOB_KIND: Handler(generation.run_job, generation.give_up),
+    }
 
 
 async def run_once(storage: Storage) -> bool:

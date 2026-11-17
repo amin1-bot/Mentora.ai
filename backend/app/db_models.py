@@ -18,6 +18,7 @@ from app.modules.curriculum.models import (
 )
 from app.modules.documents.models import Document, DocumentChunk, DocumentPage
 from app.modules.jobs.models import Job
+from app.modules.quizzes.models import Quiz, QuizAnswer, QuizAttempt, QuizQuestion
 from app.modules.students.models import GuardianInvite, GuardianLink, StudentProfile
 from app.modules.study.models import DocumentChat, DocumentChatMessage
 
@@ -41,6 +42,10 @@ __all__ = [
     "Message",
     "Misconception",
     "Question",
+    "Quiz",
+    "QuizAnswer",
+    "QuizAttempt",
+    "QuizQuestion",
     "QuestionAttempt",
     "RefreshToken",
     "StudentProfile",

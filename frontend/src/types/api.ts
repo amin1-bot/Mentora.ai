@@ -175,6 +175,76 @@ export interface StudyChat {
   ai_notice: string | null;
 }
 
+export type QuestionType = "multiple_choice" | "true_false" | "fill_blank";
+
+export interface QuizSettings {
+  count: number;
+  types: QuestionType[];
+  difficulty: "easy" | "medium" | "hard" | "mixed";
+  page_from: number | null;
+  page_to: number | null;
+  time_limit_minutes: number;
+}
+
+export interface QuizSummary {
+  id: string;
+  document_id: string;
+  title: string;
+  status: "generating" | "ready" | "failed";
+  error_code: string | null;
+  question_count: number;
+  count_requested: number;
+  types: QuestionType[];
+  difficulty: QuizSettings["difficulty"];
+  page_from: number | null;
+  page_to: number | null;
+  time_limit_minutes: number;
+  best_score: number | null;
+  attempts: number;
+  created_at: string;
+}
+
+export interface QuizFeedback {
+  is_correct: boolean;
+  your_answer: string;
+  correct_answer: string;
+  explanation: string;
+  source_pages: number[];
+}
+
+export interface AttemptQuestion {
+  id: string;
+  position: number;
+  question_type: QuestionType;
+  prompt: string;
+  options: string[] | null;
+  /** Only after the question has been answered. */
+  feedback: QuizFeedback | null;
+}
+
+export interface QuizReport {
+  score: number;
+  total: number;
+  answered: number;
+  percent: number;
+  seconds: number;
+  by_type: Record<string, { correct: number; total: number }>;
+  review_pages: { page: number; heading: string | null; missed: number }[];
+  timed_out: boolean;
+}
+
+export interface QuizAttempt {
+  id: string;
+  quiz_id: string;
+  quiz_title: string;
+  document_id: string;
+  started_at: string;
+  deadline: string | null;
+  finished_at: string | null;
+  questions: AttemptQuestion[];
+  report: QuizReport | null;
+}
+
 export interface SearchResults {
   query: string;
   terms: string[];

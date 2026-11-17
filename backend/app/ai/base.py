@@ -51,6 +51,26 @@ class TurnFinished:
 ProviderEvent = TextDelta | BoardBlocks | TurnFinished
 
 
+@dataclass(frozen=True)
+class StructuredRequest:
+    """One request whose answer must be JSON matching `schema` (quizzes, later materials).
+    Callers validate the result again: providers differ in how strictly they follow it."""
+
+    system: str
+    prompt: str
+    schema: dict[str, Any]
+    max_tokens: int
+
+
+@dataclass(frozen=True)
+class StructuredResult:
+    data: Any  # the parsed JSON, or None if the model did not return valid JSON
+    model: str
+    stop_reason: str
+    tokens_in: int
+    tokens_out: int
+
+
 class AIProviderError(Exception):
     """The provider could not answer (network, rate limit, outage, bad key)."""
 
@@ -60,6 +80,10 @@ class AIProvider(Protocol):
 
     def stream_turn(self, request: TurnRequest) -> AsyncIterator[ProviderEvent]:
         """Stream one teacher turn. Must end with exactly one TurnFinished."""
+        ...
+
+    async def generate_structured(self, request: StructuredRequest) -> StructuredResult:
+        """One JSON answer for the schema. Raises AIProviderError like stream_turn."""
         ...
 
 

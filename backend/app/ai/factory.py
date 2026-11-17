@@ -37,6 +37,17 @@ def _configured() -> AIProvider | None:
     return build_provider(get_settings())
 
 
+_override: list[AIProvider] = []
+
+
+def set_provider_override(provider: AIProvider | None) -> None:
+    """Tests only: use this provider everywhere, including background jobs, which do not
+    go through FastAPI dependencies."""
+    _override.clear()
+    if provider is not None:
+        _override.append(provider)
+
+
 def get_ai_provider() -> AIProvider | None:
     """FastAPI dependency. None means no provider is configured (the API says so clearly)."""
-    return _configured()
+    return _override[0] if _override else _configured()

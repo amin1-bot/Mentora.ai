@@ -27,6 +27,7 @@ CATALOGUE_TABLES = {"disciplines", "courses", "learning_objectives"}
 DOCUMENT_TABLES = {"documents"}  # phase 2: uploads
 PROCESSING_TABLES = {"document_pages", "document_chunks", "jobs"}  # phase 3
 STUDY_TABLES = {"document_chats", "document_chat_messages"}  # phase 4
+QUIZ_TABLES = {"quizzes", "quiz_questions", "quiz_attempts", "quiz_answers"}  # phase 5
 ALL_TABLES = (
     BLUEPRINT_TABLES
     | PHASE_3_TABLES
@@ -34,6 +35,7 @@ ALL_TABLES = (
     | DOCUMENT_TABLES
     | PROCESSING_TABLES
     | STUDY_TABLES
+    | QUIZ_TABLES
 )
 
 

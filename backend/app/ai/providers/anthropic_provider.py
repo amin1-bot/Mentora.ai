@@ -1,7 +1,9 @@
 """Claude (Anthropic) implementation of the AI provider interface."""
 
+import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import contextmanager
 
 import anthropic
 
@@ -12,6 +14,8 @@ from app.ai.base import (
     AIProviderError,
     BoardBlocks,
     ProviderEvent,
+    StructuredRequest,
+    StructuredResult,
     TextDelta,
     TurnFinished,
     TurnRequest,
@@ -41,6 +45,39 @@ class AnthropicProvider:
                 api_key=self._api_key, max_retries=2, timeout=60.0
             )
         return self._client
+
+    async def generate_structured(self, request: StructuredRequest) -> StructuredResult:
+        """Schema-constrained JSON (output_config.format). Streamed, because quiz answers
+        can be long; only the final message is used."""
+        with _mapped_errors():
+            async with self._get_client().messages.stream(
+                model=self.model,
+                max_tokens=request.max_tokens,
+                system=[
+                    {"type": "text", "text": request.system, "cache_control": {"type": "ephemeral"}}
+                ],
+                messages=[{"role": "user", "content": request.prompt}],
+                output_config={
+                    "effort": self.effort,
+                    "format": {"type": "json_schema", "schema": request.schema},
+                },
+            ) as stream:
+                final = await stream.get_final_message()
+        text = next((b.text for b in final.content if b.type == "text"), "")
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None  # e.g. cut off at max_tokens; the caller treats it as a failure
+        usage = final.usage
+        return StructuredResult(
+            data=data,
+            model=final.model,
+            stop_reason=final.stop_reason or "end_turn",
+            tokens_in=usage.input_tokens
+            + (usage.cache_read_input_tokens or 0)
+            + (usage.cache_creation_input_tokens or 0),
+            tokens_out=usage.output_tokens,
+        )
 
     async def stream_turn(self, request: TurnRequest) -> AsyncIterator[ProviderEvent]:
         messages = [{"role": m.role, "content": m.content} for m in request.messages]
@@ -120,3 +157,28 @@ class AnthropicProvider:
             tokens_in=tokens_in,
             tokens_out=usage.output_tokens,
         )
+
+
+@contextmanager
+def _mapped_errors() -> Iterator[None]:
+    """The same error mapping as stream_turn, for structured calls."""
+    try:
+        yield
+    except TypeError as exc:
+        if "authentication" in str(exc).lower():
+            raise AIProviderError("not_configured") from exc
+        raise
+    except anthropic.RateLimitError as exc:
+        raise AIProviderError("rate_limited") from exc
+    except (
+        anthropic.AuthenticationError,
+        anthropic.PermissionDeniedError,
+        anthropic.CredentialsError,
+    ) as exc:
+        raise AIProviderError("not_configured") from exc
+    except anthropic.APIStatusError as exc:
+        logger.warning("AI provider error %s: %s", exc.status_code, exc.message)
+        raise AIProviderError("unavailable") from exc
+    except anthropic.AnthropicError as exc:
+        logger.warning("AI provider error: %s", type(exc).__name__)
+        raise AIProviderError("unavailable") from exc

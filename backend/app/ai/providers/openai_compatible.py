@@ -21,6 +21,8 @@ from app.ai.base import (
     AIProviderError,
     BoardBlocks,
     ProviderEvent,
+    StructuredRequest,
+    StructuredResult,
     TextDelta,
     TurnFinished,
     TurnRequest,
@@ -87,6 +89,61 @@ class OpenAICompatibleProvider:
         self._api_key = api_key
         self._reasoning_effort = reasoning_effort
         self._transport = transport
+
+    async def generate_structured(self, request: StructuredRequest) -> StructuredResult:
+        """JSON mode, with the schema in the instructions. Vendors differ in how well they
+        follow a schema, so the caller validates every field again."""
+        if not self._api_key:
+            raise AIProviderError("not_configured")
+        system = (
+            f"{request.system}\n\nReply with one JSON object only, matching this JSON "
+            f"schema exactly:\n{json.dumps(request.schema)}"
+        )
+        body: dict[str, Any] = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": request.prompt},
+            ],
+            "max_tokens": request.max_tokens,
+            "response_format": {"type": "json_object"},
+        }
+        if self._reasoning_effort:
+            body["reasoning_effort"] = self._reasoning_effort
+        try:
+            async with httpx.AsyncClient(
+                transport=self._transport, timeout=httpx.Timeout(120.0, connect=10.0)
+            ) as client:
+                response = await client.post(
+                    self._url, json=body, headers={"Authorization": f"Bearer {self._api_key}"}
+                )
+        except httpx.TransportError as exc:
+            logger.warning("AI provider connection error: %s", type(exc).__name__)
+            raise AIProviderError("unavailable") from exc
+        if response.status_code >= 400:
+            self._raise_for_status(response)
+        try:
+            payload = response.json()
+            choice = (payload.get("choices") or [{}])[0]
+            text = (choice.get("message") or {}).get("content") or ""
+        except (ValueError, AttributeError, IndexError) as exc:
+            raise AIProviderError("unavailable") from exc
+        text = text.strip()
+        if text.startswith("`"):  # some models wrap the JSON in a code fence anyway
+            text = text.strip("`").removeprefix("json").strip()
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        usage = payload.get("usage") or {}
+        finish = choice.get("finish_reason") or "stop"
+        return StructuredResult(
+            data=data,
+            model=payload.get("model") or self.model,
+            stop_reason=_STOP_REASONS.get(finish, finish),
+            tokens_in=usage.get("prompt_tokens") or 0,
+            tokens_out=usage.get("completion_tokens") or 0,
+        )
 
     async def stream_turn(self, request: TurnRequest) -> AsyncIterator[ProviderEvent]:
         if not self._api_key:

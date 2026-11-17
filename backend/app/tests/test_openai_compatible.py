@@ -10,6 +10,7 @@ from app.ai.base import (
     AIProviderError,
     BoardBlocks,
     ChatMessage,
+    StructuredRequest,
     TextDelta,
     TurnFinished,
     TurnRequest,
@@ -166,3 +167,57 @@ def test_broken_board_json_is_malformed_output() -> None:
     )
     with pytest.raises(AIProviderError, match="malformed_output"):
         _run(lambda request: httpx.Response(200, content=body))
+
+
+# ---------- structured JSON (quizzes) ----------
+
+
+def _structured(handler):
+    provider = OpenAICompatibleProvider(
+        base_url="https://example.test/v1/",
+        api_key="test-key",
+        model="test-model",
+        transport=httpx.MockTransport(handler),
+    )
+    request = StructuredRequest("RULES", "Write questions", {"type": "object"}, 2000)
+    return asyncio.run(provider.generate_structured(request))
+
+
+def test_structured_uses_json_mode_and_parses_the_reply() -> None:
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "model": "test-model-001",
+                "choices": [
+                    {
+                        "message": {"content": '```json\n{"questions": []}\n```'},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 50, "completion_tokens": 9},
+            },
+        )
+
+    result = _structured(handler)
+    assert result.data == {"questions": []}  # code fence removed
+    assert (result.tokens_in, result.tokens_out, result.stop_reason) == (50, 9, "end_turn")
+    assert seen["response_format"] == {"type": "json_object"} and "stream" not in seen
+    system = seen["messages"][0]
+    assert system["role"] == "system" and "JSON schema" in system["content"]
+
+
+def test_structured_returns_none_for_invalid_json_and_maps_errors() -> None:
+    def broken(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {"content": "not json"}}]})
+
+    assert _structured(broken).data is None
+
+    def limited(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"error": {"message": "quota"}})
+
+    with pytest.raises(AIProviderError, match="rate_limited"):
+        _structured(limited)

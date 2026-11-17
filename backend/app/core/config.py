@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     # a paid plan that does not keep or train on inputs. While false, document study works
     # in local development only (for test documents), with a notice on the page.
     ai_private_documents: bool = False
+    # Phase 5: quizzes written from a document per student per day (AI cost).
+    quiz_daily_limit: int = 10
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -108,13 +108,15 @@ def client() -> Iterator[TestClient]:
 @pytest.fixture
 def teacher() -> Iterator[ScriptedProvider]:
     """The scripted stand-in for the AI model, used by every lesson test."""
-    from app.ai.factory import get_ai_provider
+    from app.ai.factory import get_ai_provider, set_provider_override
     from app.main import app
 
     provider = ScriptedProvider()
     app.dependency_overrides[get_ai_provider] = lambda: provider
+    set_provider_override(provider)  # background jobs (quiz generation) use it too
     yield provider
     app.dependency_overrides.pop(get_ai_provider, None)
+    set_provider_override(None)
 
 
 @pytest.fixture(autouse=True)

@@ -10,6 +10,8 @@ from app.ai.base import (
     AIProviderError,
     BoardBlocks,
     ProviderEvent,
+    StructuredRequest,
+    StructuredResult,
     TextDelta,
     TurnFinished,
     TurnRequest,
@@ -30,6 +32,17 @@ class ScriptedProvider:
     default: Reply = field(default_factory=lambda: Reply(["Let's think about it together."]))
     requests: list[TurnRequest] = field(default_factory=list)
     name: str = "scripted"
+    # Structured answers (quizzes): each item is returned in turn as the parsed JSON;
+    # an AIProviderError instance is raised instead.
+    structured: list[Any] = field(default_factory=list)
+    structured_requests: list[StructuredRequest] = field(default_factory=list)
+
+    async def generate_structured(self, request: StructuredRequest) -> StructuredResult:
+        self.structured_requests.append(request)
+        data = self.structured.pop(0) if self.structured else None
+        if isinstance(data, AIProviderError):
+            raise data
+        return StructuredResult(data, "scripted-model", "end_turn", 900, 400)
 
     async def stream_turn(self, request: TurnRequest) -> AsyncIterator[ProviderEvent]:
         self.requests.append(request)

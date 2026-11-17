@@ -328,3 +328,19 @@ Measuring grounding (uses a made-up sample document, safe on a free plan):
 python -m evaluation.run_grounding_eval --pause 4
 ```
 Targets: invalid citation rate 0%, and all other scores close to 100%.
+
+**Quizzes (phase 5).** From a document's **Quizzes** page a student asks for 5 to 15
+questions (multiple choice, true or false, fill in the blank), a difficulty, a page range
+and an optional timer. The AI writes them in the background job queue as structured JSON;
+code then checks every question (distinct options, the answer not given away, a fill-in
+answer that really appears on the cited page, cited pages that were actually sent) and
+asks once more for any that fail. Answers stay on the server until a question is answered,
+code grades them, the server enforces the timer, and the report lists the pages to review.
+Document quizzes do not change topic mastery yet: that needs a document to be linked to a
+catalogue topic, which comes with analytics (phase 9).
+
+Measuring quiz generation (made-up sample document, safe on a free plan):
+```powershell
+python -m evaluation.run_quiz_eval --runs 3 --pause 4
+```
+Target: acceptance rate over 85%.
