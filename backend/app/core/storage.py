@@ -53,9 +53,15 @@ class LocalStorage:
 
     def save(self, key: str, data: bytes) -> None:
         path = self._path(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
         # Write to a temporary file, then rename: a crash never leaves half a file.
-        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".upload-")
+        for attempt in (1, 2):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".upload-")
+                break
+            except FileNotFoundError:  # a delete removed the empty folder just now
+                if attempt == 2:
+                    raise StorageError("could not save file") from None
         try:
             with os.fdopen(fd, "wb") as f:
                 f.write(data)
@@ -71,10 +77,20 @@ class LocalStorage:
             raise StorageError("could not read file") from exc
 
     def delete(self, key: str) -> None:
+        path = self._path(key)
         try:
-            self._path(key).unlink(missing_ok=True)
+            path.unlink(missing_ok=True)
         except OSError as exc:
             raise StorageError("could not delete file") from exc
+        # Remove folders left empty (e.g. documents/<user id>/), so folder names do not
+        # keep showing which accounts once uploaded something.
+        folder = path.parent
+        while folder != self.root and self.root in folder.parents:
+            try:
+                folder.rmdir()  # only succeeds when empty
+            except OSError:
+                break
+            folder = folder.parent
 
     def exists(self, key: str) -> bool:
         return self._path(key).is_file()

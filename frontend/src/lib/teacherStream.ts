@@ -18,7 +18,10 @@ export interface StreamHandlers {
   onDone?: (message: LessonMessage, lesson: LessonState) => void;
 }
 
-export function parseEvents(buffer: string): { events: { name: string; data: unknown }[]; rest: string } {
+export function parseEvents(buffer: string): {
+  events: { name: string; data: unknown }[];
+  rest: string;
+} {
   const parts = buffer.split("\n\n");
   const rest = parts.pop() ?? "";
   const events = parts
@@ -35,12 +38,19 @@ export function parseEvents(buffer: string): { events: { name: string; data: unk
   return { events, rest };
 }
 
-export async function streamTurn(
-  sessionId: string,
-  body: { intent: TurnIntent; text?: string },
-  handlers: StreamHandlers,
+export interface EventHandlers {
+  onStatus?: (state: string) => void;
+  onDelta?: (text: string) => void;
+  onReset?: () => void;
+  onDone?: (data: Record<string, unknown>) => void;
+}
+
+/** POSTs `body` to `path` and reads the Server-Sent Events the backend streams back. */
+export async function streamEvents(
+  path: string,
+  body: unknown,
+  handlers: EventHandlers,
 ): Promise<void> {
-  const path = `/sessions/${sessionId}/messages`;
   let response: Response;
   try {
     response = await send("POST", path, body);
@@ -64,8 +74,23 @@ export async function streamTurn(
       if (name === "status") handlers.onStatus?.(String(d.state));
       else if (name === "delta") handlers.onDelta?.(String(d.text));
       else if (name === "reset") handlers.onReset?.();
-      else if (name === "done") handlers.onDone?.(d.message as LessonMessage, d.lesson as LessonState);
-      else if (name === "error") throw new ApiError(200, String(d.code), String(d.message));
+      else if (name === "done") handlers.onDone?.(d);
+      else if (name === "error")
+        throw new ApiError(200, String(d.code), String(d.message));
     }
   }
+}
+
+export function streamTurn(
+  sessionId: string,
+  body: { intent: TurnIntent; text?: string },
+  handlers: StreamHandlers,
+): Promise<void> {
+  return streamEvents(`/sessions/${sessionId}/messages`, body, {
+    onStatus: handlers.onStatus,
+    onDelta: handlers.onDelta,
+    onReset: handlers.onReset,
+    onDone: (d) =>
+      handlers.onDone?.(d.message as LessonMessage, d.lesson as LessonState),
+  });
 }

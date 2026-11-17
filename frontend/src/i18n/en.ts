@@ -204,6 +204,33 @@ export const en = {
     page: "page {{page}}",
     pages: "pages {{start}}–{{end}}",
     openAtPage: "Open at page {{page}}",
+    study: "Study with Mentora",
+  },
+  study: {
+    kicker: "Studying your document",
+    meta: "{{pages}} pages · {{searchable}} with readable text",
+    openPdf: "Open PDF",
+    startOver: "Start over",
+    back: "Back to library",
+    devNoticeTitle: "Test documents only for now",
+    devNotice:
+      "Mentora is running on a free AI plan for development, which may keep what it is sent. Use made-up or public documents here, not private or real student work.",
+    conversation: "Conversation about this document",
+    intro:
+      "Ask anything about this document. Answers point to the pages they come from, and Mentora says so when something is not in your document.",
+    suggestSummary: "Summarise this document",
+    suggestTerms: "What are the key terms?",
+    suggestPage: "Explain page {{page}}",
+    teacher: "Ms. Mentora",
+    you: "You",
+    thinking: "Reading your document…",
+    askLabel: "Your question about the document",
+    placeholder: 'Ask about this document, or a page: "explain page 3"',
+    ask: "Ask",
+    footnote:
+      "Mentora can make mistakes. Check important points on the cited page. For assignments it explains the method rather than writing your answer.",
+    openAtPage: "Open the PDF at page {{page}}",
+    board: "Notes on the board",
   },
   settings: {
     title: "Settings",

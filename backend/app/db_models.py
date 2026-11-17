@@ -19,6 +19,7 @@ from app.modules.curriculum.models import (
 from app.modules.documents.models import Document, DocumentChunk, DocumentPage
 from app.modules.jobs.models import Job
 from app.modules.students.models import GuardianInvite, GuardianLink, StudentProfile
+from app.modules.study.models import DocumentChat, DocumentChatMessage
 
 __all__ = [
     "AIRequest",
@@ -27,6 +28,8 @@ __all__ = [
     "Course",
     "Discipline",
     "Document",
+    "DocumentChat",
+    "DocumentChatMessage",
     "DocumentChunk",
     "DocumentPage",
     "GuardianInvite",

@@ -16,6 +16,10 @@ import { Loading } from "../components/Temporary";
 const ClassroomPage = lazy(() =>
   import("../features/classroom/ClassroomPage").then((m) => ({ default: m.ClassroomPage })),
 );
+// Document study shows board equations too, so it also loads only when opened.
+const StudyPage = lazy(() =>
+  import("../features/documents/StudyPage").then((m) => ({ default: m.StudyPage })),
+);
 import { HomePage } from "../features/dashboard/HomePage";
 import { LibraryPage } from "../features/documents/LibraryPage";
 import { ProgressPage } from "../features/progress/ProgressPage";
@@ -47,6 +51,16 @@ export const routes = [
       { path: "/home", element: <HomePage /> },
       { path: "/progress", element: <RequireAuth roles={["student"]}><ProgressPage /></RequireAuth> },
       { path: "/library", element: <RequireAuth roles={["student"]}><LibraryPage /></RequireAuth> },
+      {
+        path: "/library/:documentId/study",
+        element: (
+          <RequireAuth roles={["student"]}>
+            <Suspense fallback={<Loading />}>
+              <StudyPage />
+            </Suspense>
+          </RequireAuth>
+        ),
+      },
       { path: "/settings", element: <SettingsPage /> },
     ],
   },

@@ -26,8 +26,14 @@ PHASE_3_TABLES = {"refresh_tokens", "guardian_invites"}
 CATALOGUE_TABLES = {"disciplines", "courses", "learning_objectives"}
 DOCUMENT_TABLES = {"documents"}  # phase 2: uploads
 PROCESSING_TABLES = {"document_pages", "document_chunks", "jobs"}  # phase 3
+STUDY_TABLES = {"document_chats", "document_chat_messages"}  # phase 4
 ALL_TABLES = (
-    BLUEPRINT_TABLES | PHASE_3_TABLES | CATALOGUE_TABLES | DOCUMENT_TABLES | PROCESSING_TABLES
+    BLUEPRINT_TABLES
+    | PHASE_3_TABLES
+    | CATALOGUE_TABLES
+    | DOCUMENT_TABLES
+    | PROCESSING_TABLES
+    | STUDY_TABLES
 )
 
 

@@ -153,6 +153,28 @@ export interface SearchHit {
   snippet: string;
 }
 
+export interface StudyMessage {
+  id: string;
+  role: "student" | "teacher";
+  content: string;
+  cited_pages: number[];
+  whiteboard: unknown[] | null;
+  created_at: string;
+}
+
+export interface StudyChat {
+  document: {
+    id: string;
+    title: string;
+    original_filename: string;
+    page_count: number | null;
+    pages_with_text: number | null;
+  };
+  messages: StudyMessage[];
+  /** "development_only": the AI is a free plan; use test documents only. */
+  ai_notice: string | null;
+}
+
 export interface SearchResults {
   query: string;
   terms: string[];

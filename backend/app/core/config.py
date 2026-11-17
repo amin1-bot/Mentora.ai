@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     job_worker_in_api: bool = True  # run the job worker inside the API process (local dev)
     job_poll_seconds: float = 2.0
     document_processing_seconds: int = 180  # give up reading one PDF after this long
+    # Phase 4: may students' own documents be sent to the configured AI? Set true only for
+    # a paid plan that does not keep or train on inputs. While false, document study works
+    # in local development only (for test documents), with a notice on the page.
+    ai_private_documents: bool = False
 
     @property
     def cors_origin_list(self) -> list[str]:

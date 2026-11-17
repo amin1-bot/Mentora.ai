@@ -266,9 +266,12 @@ def test_ai_usage_is_logged_without_any_text(client: TestClient, teacher: Script
             "SELECT column_name FROM information_schema.columns WHERE table_name = 'ai_requests'"
         )
     }
+    assert query("SELECT purpose FROM ai_requests") == [("lesson",)]
     assert columns == {
         "id",
         "session_id",
+        "document_chat_id",  # phase 4: questions about a document
+        "purpose",  # "lesson" or "document_chat"
         "model",
         "tokens_in",
         "tokens_out",

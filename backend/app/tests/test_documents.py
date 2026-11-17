@@ -309,3 +309,15 @@ def test_storage_round_trip(tmp_path: Path) -> None:
     store.delete("documents/abc/file.pdf")
     store.delete("documents/abc/file.pdf")  # deleting twice is fine
     assert not store.exists("documents/abc/file.pdf")
+
+
+def test_deleting_the_last_file_removes_its_empty_folder(tmp_path: Path) -> None:
+    storage = LocalStorage(tmp_path)
+    storage.save("documents/abc/one.pdf", b"%PDF-1.4 a")
+    storage.save("documents/abc/two.pdf", b"%PDF-1.4 b")
+    storage.delete("documents/abc/one.pdf")
+    assert (tmp_path / "documents" / "abc").is_dir()  # still holds two.pdf
+    storage.delete("documents/abc/two.pdf")
+    assert not (tmp_path / "documents").exists() and tmp_path.is_dir()
+    storage.save("documents/abc/three.pdf", b"%PDF-1.4 c")  # folders come back as needed
+    assert storage.read("documents/abc/three.pdf") == b"%PDF-1.4 c"

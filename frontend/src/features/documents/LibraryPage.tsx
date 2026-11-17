@@ -1,8 +1,9 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { Alert } from "../../components/Alert";
-import { Button } from "../../components/Button";
+import { Button, buttonClass } from "../../components/Button";
 import { TextField } from "../../components/Form";
 import { Loading } from "../../components/Temporary";
 import { errorMessage } from "../../lib/errors";
@@ -352,6 +353,14 @@ function DocumentRow({ doc }: { doc: StudyDocument }) {
       </p>
       <ProcessingStatus doc={doc} />
       <div className={styles.actions}>
+        {doc.status === "ready" && (doc.pages_with_text ?? 0) > 0 && (
+          <Link
+            to={`/library/${doc.id}/study`}
+            className={buttonClass("primary")}
+          >
+            {t("library.study")}
+          </Link>
+        )}
         <Button variant="secondary" onClick={() => open("view")}>
           {t("library.view")}
         </Button>

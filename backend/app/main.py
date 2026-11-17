@@ -25,6 +25,7 @@ from app.modules.documents.router import router as documents_router
 from app.modules.jobs.worker import run_forever
 from app.modules.progress.router import router as progress_router
 from app.modules.students.router import guardians_router, students_router
+from app.modules.study.router import router as study_router
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,7 @@ def create_app() -> FastAPI:
     api.include_router(classroom_router)
     api.include_router(progress_router)
     api.include_router(documents_router)
+    api.include_router(study_router)
 
     app.include_router(api)
     register_error_handlers(app)

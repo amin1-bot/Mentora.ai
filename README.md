@@ -303,3 +303,28 @@ giving the answer. The blueprint asks for about 50, written by you; add your own
   Flagged messages need human review during the pilot.
 - One topic area (Percentages, 15 questions). Mastery that persists between lessons and
   the progress page arrive with the adaptive slice (MVP part of phases 7 and 8).
+
+## Studying with your own documents (multi-subject plan, phases 2–4)
+
+Students aged 18+ upload PDFs in the **Library**. Each PDF is stored privately, its text is
+read in the background (pypdf, no AI), split into sections with page numbers and indexed
+for full-text search. **Study with Mentora** opens a conversation about one document:
+
+- The teacher sees whole pages, each labelled `[p. N]`: the pages the student names, the
+  whole document when it is short, otherwise the best-matching pages.
+- Replies cite pages as `[p. N]`. Code removes any citation of a page the teacher was
+  not given; in the app each citation opens the PDF at that page.
+- When the document does not cover a question, the teacher says so and labels anything
+  it adds as general knowledge. Text inside documents is treated as data, never as
+  instructions.
+
+**Private documents and free AI plans.** Free plans may keep or train on what they are
+sent. Document study therefore only works in local development (with a notice on the
+page: use test documents) until `AI_PRIVATE_DOCUMENTS=true` is set in `backend/.env`,
+which should only happen with a paid plan that does not train on inputs.
+
+Measuring grounding (uses a made-up sample document, safe on a free plan):
+```powershell
+python -m evaluation.run_grounding_eval --pause 4
+```
+Targets: invalid citation rate 0%, and all other scores close to 100%.
