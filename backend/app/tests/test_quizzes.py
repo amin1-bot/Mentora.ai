@@ -3,6 +3,7 @@ at a time, grading by code, the timer, the report, and privacy."""
 
 import json
 import random
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -195,7 +196,7 @@ def test_ai_outages_are_retried_then_reported(
     teacher.structured += [AIProviderError("rate_limited")] * 3
     quiz = make_quiz(client, lecture["id"]).json()
     for _ in range(3):
-        query("UPDATE jobs SET run_after = now()")
+        query("UPDATE jobs SET run_after = now() - interval '1 hour'")
         run_jobs(private_storage)
     quiz = client.get(f"/api/v1/quizzes/{quiz['id']}").json()
     assert quiz["status"] == "failed" and quiz["error_code"] == "ai_unavailable"
@@ -325,7 +326,8 @@ def test_the_time_limit_is_enforced_by_the_server(
     quiz = ready_quiz(client, private_storage, teacher, lecture["id"], time_limit_minutes=5)
     attempt = start(client, quiz["id"])
     assert attempt["deadline"] is not None
-    query("UPDATE quiz_attempts SET deadline = now() - interval '1 minute'")
+    # The app's clock, not the database's: the two can drift apart (e.g. after sleep).
+    query("UPDATE quiz_attempts SET deadline = :d", d=datetime.now(UTC) - timedelta(minutes=1))
     r = answer(client, attempt["id"], attempt["questions"][0]["id"], 0)
     assert r.status_code == 409 and r.json()["error"]["code"] == "time_up"
     done = client.get(f"/api/v1/quiz-attempts/{attempt['id']}").json()

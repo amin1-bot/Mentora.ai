@@ -369,6 +369,14 @@ function DocumentRow({ doc }: { doc: StudyDocument }) {
             {t("library.quizzes")}
           </Link>
         )}
+        {doc.status === "ready" && (doc.pages_with_text ?? 0) > 0 && (
+          <Link
+            to={`/library/${doc.id}/materials`}
+            className={buttonClass("secondary")}
+          >
+            {t("library.materials")}
+          </Link>
+        )}
         <Button variant="secondary" onClick={() => open("view")}>
           {t("library.view")}
         </Button>

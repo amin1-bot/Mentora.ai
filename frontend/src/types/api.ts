@@ -245,6 +245,62 @@ export interface QuizAttempt {
   report: QuizReport | null;
 }
 
+export type MaterialKind = "summary" | "guide" | "flashcards";
+
+export interface MaterialCreate {
+  kind: MaterialKind;
+  page_from: number | null;
+  page_to: number | null;
+  card_count: number;
+}
+
+export interface MaterialSummary {
+  id: string;
+  document_id: string;
+  kind: MaterialKind;
+  title: string;
+  status: "generating" | "ready" | "failed";
+  error_code: string | null;
+  page_from: number | null;
+  page_to: number | null;
+  items: number;
+  due_cards: number;
+  created_at: string;
+}
+
+export interface SummaryContent {
+  sections: { heading: string; points: { text: string; pages: number[] }[] }[];
+}
+
+export interface GuideContent {
+  overview: string;
+  key_terms: { term: string; definition: string; pages: number[] }[];
+  sections: { heading: string; explanation: string; pages: number[] }[];
+  self_check: { question: string; answer: string; pages: number[] }[];
+}
+
+export interface FlashcardsContent {
+  cards: { front: string; back: string; pages: number[] }[];
+}
+
+export interface StudyMaterial extends MaterialSummary {
+  content: SummaryContent | GuideContent | FlashcardsContent | null;
+}
+
+export type CardRating = "again" | "hard" | "good" | "easy";
+
+export interface FlashcardReviewSession {
+  due: {
+    index: number;
+    front: string;
+    back: string;
+    pages: number[];
+    is_new: boolean;
+  }[];
+  total_cards: number;
+  learned: number;
+}
+
 export interface SearchResults {
   query: string;
   terms: string[];

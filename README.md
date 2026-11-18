@@ -344,3 +344,16 @@ Measuring quiz generation (made-up sample document, safe on a free plan):
 python -m evaluation.run_quiz_eval --runs 3 --pause 4
 ```
 Target: acceptance rate over 85%.
+
+**Study materials (phase 6).** From a document's **Notes & flashcards** page a student
+asks for a summary (key points by section), a study guide (overview, key terms,
+explanations, self-check questions) or 10 to 40 flashcards, for the whole document or a
+page range. They are written in the background, every item is checked to cite pages that
+were sent, and each page citation opens the PDF there. Summaries and guides can be printed.
+Flashcards are reviewed with spaced repetition: rate each card again / hard / good / easy
+and it comes back after 10 minutes, a day, three days, and longer gaps from there.
+
+Measuring material generation (made-up sample document, safe on a free plan):
+```powershell
+python -m evaluation.run_material_eval --pause 4
+```

@@ -83,6 +83,8 @@ class Settings(BaseSettings):
     ai_private_documents: bool = False
     # Phase 5: quizzes written from a document per student per day (AI cost).
     quiz_daily_limit: int = 10
+    # Phase 6: summaries, guides and flashcard sets per student per day (AI cost).
+    material_daily_limit: int = 10
 
     @property
     def cors_origin_list(self) -> list[str]:

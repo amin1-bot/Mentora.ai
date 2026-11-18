@@ -20,6 +20,8 @@ const ClassroomPage = lazy(() =>
 const StudyPage = lazy(() =>
   import("../features/documents/StudyPage").then((m) => ({ default: m.StudyPage })),
 );
+import { MaterialPage } from "../features/materials/MaterialPage";
+import { MaterialsPage } from "../features/materials/MaterialsPage";
 import { QuizPlayPage } from "../features/quizzes/QuizPlayPage";
 import { QuizzesPage } from "../features/quizzes/QuizzesPage";
 import { HomePage } from "../features/dashboard/HomePage";
@@ -53,6 +55,14 @@ export const routes = [
       { path: "/home", element: <HomePage /> },
       { path: "/progress", element: <RequireAuth roles={["student"]}><ProgressPage /></RequireAuth> },
       { path: "/library", element: <RequireAuth roles={["student"]}><LibraryPage /></RequireAuth> },
+      {
+        path: "/library/:documentId/materials",
+        element: <RequireAuth roles={["student"]}><MaterialsPage /></RequireAuth>,
+      },
+      {
+        path: "/materials/:materialId",
+        element: <RequireAuth roles={["student"]}><MaterialPage /></RequireAuth>,
+      },
       {
         path: "/library/:documentId/quizzes",
         element: <RequireAuth roles={["student"]}><QuizzesPage /></RequireAuth>,

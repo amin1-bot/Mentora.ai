@@ -249,7 +249,9 @@ def test_storage_errors_are_retried_then_reported(
     for f in private_storage.rglob("*.pdf"):
         f.unlink()  # the stored file is missing: reading it raises a storage error
     for attempt in (1, 2, 3):
-        query("UPDATE jobs SET run_after = now()")  # skip the wait between attempts
+        query(
+            "UPDATE jobs SET run_after = now() - interval '1 hour'"
+        )  # skip the wait between attempts
         assert run_jobs(private_storage) == 1
         status = client.get(f"/api/v1/documents/{doc_id}").json()["status"]
         assert status == ("processing" if attempt < 3 else "failed")

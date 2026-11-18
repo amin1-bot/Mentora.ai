@@ -18,6 +18,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.base import AIProviderError
 from app.core.database import SessionLocal
 from app.core.storage import Storage, get_storage
 from app.modules.jobs import queue
@@ -36,11 +37,13 @@ class Handler:
 
 def handlers() -> dict[str, Handler]:
     from app.modules.documents import processing
+    from app.modules.materials import generation as materials
     from app.modules.quizzes import generation
 
     return {
         processing.JOB_KIND: Handler(processing.run_job, processing.give_up),
         generation.JOB_KIND: Handler(generation.run_job, generation.give_up),
+        materials.JOB_KIND: Handler(materials.run_job, materials.give_up),
     }
 
 
@@ -62,7 +65,11 @@ async def run_once(storage: Storage) -> bool:
             await handler.run(db, storage, payload)
         except Exception as exc:  # any failure is recorded and retried later
             await db.rollback()
-            logger.exception("Job %s (%s) failed", job_id, kind)
+            if isinstance(exc, AIProviderError):
+                # Expected now and then (busy model, network): one line, then a retry.
+                logger.warning("Job %s (%s): AI unavailable (%s)", job_id, kind, exc)
+            else:
+                logger.exception("Job %s (%s) failed", job_id, kind)
             if not await queue.mark_failed(db, job_id, type(exc).__name__):
                 await handler.give_up(db, payload)
             return True
