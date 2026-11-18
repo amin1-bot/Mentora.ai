@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fakeBackend, jsonResponse, renderApp } from "../../test/renderApp";
+import { fileName } from "../../lib/download";
 import { formatClock, withoutCitations } from "./QuizPlayPage";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -272,5 +273,54 @@ describe("playing a quiz", () => {
     renderApp("/quiz-attempts/a1");
     const clock = await screen.findByLabelText("Time left");
     expect(clock.textContent).toMatch(/^[45]:\d\d$/);
+  });
+});
+
+describe("pdf downloads", () => {
+  it("names files safely", () => {
+    expect(fileName("Week 3: Databases / Keys?", " - answers")).toBe(
+      "Week 3 Databases Keys - answers.pdf",
+    );
+    expect(fileName("Öğrenci notları")).toBe("Öğrenci notları.pdf");
+    expect(fileName("///")).toBe("mentora.pdf");
+  });
+
+  it("downloads the student copy and the answer key from the quiz list", async () => {
+    vi.stubGlobal(
+      "URL",
+      Object.assign(URL, {
+        createObjectURL: () => "blob:x",
+        revokeObjectURL: () => {},
+      }),
+    );
+    const clicks = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    const asked: string[] = [];
+    fakeBackend((url) => {
+      if (url.endsWith("/auth/me")) return me();
+      if (url.includes("/export")) {
+        asked.push(url.split("/api/v1")[1] ?? url);
+        return new Response(new Blob(["%PDF-1.4"]), {
+          headers: { "Content-Type": "application/pdf" },
+        });
+      }
+      if (url.endsWith("/documents/d1/quizzes"))
+        return jsonResponse(200, [quiz]);
+      if (url.endsWith("/documents/d1")) return jsonResponse(200, doc);
+      return undefined;
+    });
+    renderApp("/library/d1/quizzes");
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", { name: "Download PDF" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Answer key PDF" }));
+    await vi.waitFor(() => expect(clicks).toHaveBeenCalledTimes(2));
+    expect(asked).toEqual([
+      "/quizzes/q1/export?version=student",
+      "/quizzes/q1/export?version=teacher",
+    ]);
+    clicks.mockRestore();
   });
 });

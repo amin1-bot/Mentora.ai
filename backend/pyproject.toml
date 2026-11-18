@@ -16,6 +16,7 @@ dependencies = [
     "anthropic>=2.8,<3",
     "python-multipart>=0.0.20",  # file uploads
     "pypdf>=5.1",  # checks uploaded PDFs (pages, encryption) without running them
+    "reportlab>=4.2",  # builds PDF exports of quizzes and study materials (BSD licence)
 ]
 
 [project.optional-dependencies]

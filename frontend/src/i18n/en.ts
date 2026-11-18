@@ -248,6 +248,7 @@ export const en = {
     reviewDue_one: "Review {{count}} card",
     reviewDue_other: "Review {{count}} cards",
     print: "Print",
+    downloadPdf: "Download PDF",
     back: "Back to materials",
     notReady: "This is not ready yet.",
     footnote:
@@ -338,6 +339,8 @@ export const en = {
     yourAnswers: "Your answers",
     notAnswered: "Not answered.",
     backToQuizzes: "Back to quizzes",
+    downloadPdf: "Download PDF",
+    downloadAnswers: "Answer key PDF",
   },
   study: {
     kicker: "Studying your document",

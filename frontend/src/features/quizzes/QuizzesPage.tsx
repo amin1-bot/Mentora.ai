@@ -6,6 +6,7 @@ import { Alert } from "../../components/Alert";
 import { Button, buttonClass } from "../../components/Button";
 import { Checkbox, SelectField, TextField } from "../../components/Form";
 import { Loading } from "../../components/Temporary";
+import { downloadFile, fileName } from "../../lib/download";
 import { errorMessage } from "../../lib/errors";
 import type { QuestionType, QuizSettings, QuizSummary } from "../../types/api";
 import styles from "./quizzes.module.css";
@@ -195,6 +196,15 @@ function QuizRow({
   const navigate = useNavigate();
   const startAttempt = useStartAttempt();
   const remove = useDeleteQuiz(documentId);
+  const [downloadError, setDownloadError] = useState<unknown>(null);
+
+  function download(version: "student" | "teacher") {
+    setDownloadError(null);
+    downloadFile(
+      `/quizzes/${quiz.id}/export?version=${version}`,
+      fileName(quiz.title, version === "teacher" ? " - answers" : ""),
+    ).catch(setDownloadError);
+  }
   const date = new Intl.DateTimeFormat(i18n.language, {
     dateStyle: "medium",
     timeStyle: "short",
@@ -246,6 +256,16 @@ function QuizRow({
             {quiz.attempts ? t("quiz.playAgain") : t("quiz.play")}
           </Button>
         )}
+        {quiz.status === "ready" && (
+          <>
+            <Button variant="secondary" onClick={() => download("student")}>
+              {t("quiz.downloadPdf")}
+            </Button>
+            <Button variant="secondary" onClick={() => download("teacher")}>
+              {t("quiz.downloadAnswers")}
+            </Button>
+          </>
+        )}
         <Button
           variant="secondary"
           disabled={remove.isPending}
@@ -256,6 +276,9 @@ function QuizRow({
       </div>
       {startAttempt.isError && (
         <Alert tone="error">{errorMessage(startAttempt.error, t)}</Alert>
+      )}
+      {downloadError != null && (
+        <Alert tone="error">{errorMessage(downloadError, t)}</Alert>
       )}
     </li>
   );

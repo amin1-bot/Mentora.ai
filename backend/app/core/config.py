@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     quiz_daily_limit: int = 10
     # Phase 6: summaries, guides and flashcard sets per student per day (AI cost).
     material_daily_limit: int = 10
+    # Phase 7: a TrueType font for PDF exports (Turkish and Cyrillic letters). Empty:
+    # DejaVu Sans or Arial is found automatically (see exports/pdf.py).
+    pdf_font_path: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

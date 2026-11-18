@@ -6,6 +6,7 @@ import { Link, useParams } from "react-router";
 import { Alert } from "../../components/Alert";
 import { Button, buttonClass } from "../../components/Button";
 import { Loading } from "../../components/Temporary";
+import { downloadFile, fileName } from "../../lib/download";
 import { errorMessage } from "../../lib/errors";
 import type {
   CardRating,
@@ -22,6 +23,7 @@ export function MaterialPage() {
   const { t } = useTranslation();
   const { materialId = "" } = useParams();
   const material = useMaterial(materialId);
+  const [downloadError, setDownloadError] = useState<unknown>(null);
 
   if (material.isPending) return <Loading />;
   if (material.isError)
@@ -36,6 +38,19 @@ export function MaterialPage() {
           <h1 className={styles.title}>{m.title}</h1>
         </div>
         <div className={styles.actions}>
+          {m.status === "ready" && (
+            <Button
+              onClick={() => {
+                setDownloadError(null);
+                downloadFile(
+                  `/materials/${m.id}/export`,
+                  fileName(m.title),
+                ).catch(setDownloadError);
+              }}
+            >
+              {t("materials.downloadPdf")}
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => window.print()}>
             {t("materials.print")}
           </Button>
@@ -47,6 +62,9 @@ export function MaterialPage() {
           </Link>
         </div>
       </header>
+      {downloadError != null && (
+        <Alert tone="error">{errorMessage(downloadError, t)}</Alert>
+      )}
       {m.status !== "ready" || !m.content ? (
         <Alert tone="info">{t("materials.notReady")}</Alert>
       ) : m.kind === "summary" ? (

@@ -22,6 +22,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.classroom.router import router as classroom_router
 from app.modules.curriculum.router import router as curriculum_router
 from app.modules.documents.router import router as documents_router
+from app.modules.exports.router import router as exports_router
 from app.modules.jobs.worker import run_forever
 from app.modules.materials.router import router as materials_router
 from app.modules.progress.router import router as progress_router
@@ -103,6 +104,7 @@ def create_app() -> FastAPI:
     api.include_router(study_router)
     api.include_router(quizzes_router)
     api.include_router(materials_router)
+    api.include_router(exports_router)
 
     app.include_router(api)
     register_error_handlers(app)

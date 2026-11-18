@@ -357,3 +357,12 @@ Measuring material generation (made-up sample document, safe on a free plan):
 ```powershell
 python -m evaluation.run_material_eval --pause 4
 ```
+
+**PDF export (phase 7).** Quizzes download as a student copy (questions and space to
+answer, never the answers) or a teacher copy (with the answer key, explanations and
+pages); summaries, study guides and flashcard sheets download too. PDFs are built on
+request with ReportLab (BSD licence, free for commercial use) and never stored. Text is
+escaped before it goes into the PDF, so nothing in a document or an AI answer can add
+markup. For Turkish and Cyrillic letters the PDF needs a TrueType font: DejaVu Sans
+(install `fonts-dejavu` on a Linux server) or Arial is found automatically, or set
+`PDF_FONT_PATH` in `backend/.env`.
